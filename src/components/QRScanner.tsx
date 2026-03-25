@@ -4,10 +4,11 @@ import { Camera, AlertTriangle, Link, ClipboardPaste } from "lucide-react";
 
 interface QRScannerProps {
   onScan: (url: string) => void;
-  scanCount: number;
+  urlViolationMap: Map<string, number>;
+  maxViolations: number;
 }
 
-const QRScanner = ({ onScan, scanCount }: QRScannerProps) => {
+const QRScanner = ({ onScan, urlViolationMap, maxViolations }: QRScannerProps) => {
   const [error, setError] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(true);
   const [linkInput, setLinkInput] = useState("");
@@ -19,6 +20,9 @@ const QRScanner = ({ onScan, scanCount }: QRScannerProps) => {
   const isValidFormUrl = (url: string) =>
     url.includes("docs.google.com/forms") || url.includes("forms.gle");
 
+  const isBlocked = (url: string) =>
+    (urlViolationMap.get(url) || 0) >= maxViolations;
+
   const handlePasteSubmit = () => {
     const trimmed = linkInput.trim();
     if (!trimmed) {
@@ -27,6 +31,10 @@ const QRScanner = ({ onScan, scanCount }: QRScannerProps) => {
     }
     if (!isValidFormUrl(trimmed)) {
       setLinkError("Link harus berupa Google Form (docs.google.com/forms atau forms.gle)");
+      return;
+    }
+    if (isBlocked(trimmed)) {
+      setLinkError("Link ini telah diblokir karena terlalu banyak pelanggaran.");
       return;
     }
     setLinkError(null);
@@ -55,7 +63,12 @@ const QRScanner = ({ onScan, scanCount }: QRScannerProps) => {
         { facingMode: "environment" },
         { fps: 10, qrbox: { width: 250, height: 250 } },
         (decodedText) => {
-          if (decodedText.includes("docs.google.com/forms") || decodedText.includes("forms.gle")) {
+          if (isValidFormUrl(decodedText)) {
+            if (isBlocked(decodedText)) {
+              setError("Link ini telah diblokir karena terlalu banyak pelanggaran.");
+              scanner.stop().catch(console.error);
+              return;
+            }
             scanner.stop().catch(console.error);
             onScan(decodedText);
           }
@@ -67,7 +80,7 @@ const QRScanner = ({ onScan, scanCount }: QRScannerProps) => {
       setError("Tidak dapat mengakses kamera. Pastikan izin kamera telah diberikan.");
       setIsStarting(false);
     }
-  }, [onScan]);
+  }, [onScan, urlViolationMap, maxViolations]);
 
   useEffect(() => {
     startScanner();
@@ -76,9 +89,13 @@ const QRScanner = ({ onScan, scanCount }: QRScannerProps) => {
     };
   }, [startScanner]);
 
+  // Show blocked URLs
+  const blockedUrls = Array.from(urlViolationMap.entries())
+    .filter(([, count]) => count >= maxViolations)
+    .map(([url]) => url);
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen px-4 py-8">
-      {/* Header */}
       <div className="text-center mb-6">
         <div className="inline-flex items-center gap-2 rounded-full bg-secondary px-4 py-2 mb-4">
           <Camera className="w-4 h-4 text-primary" />
@@ -94,7 +111,6 @@ const QRScanner = ({ onScan, scanCount }: QRScannerProps) => {
         </p>
       </div>
 
-      {/* Mode toggle */}
       <div className="flex rounded-xl bg-secondary p-1 mb-4 w-full max-w-xs">
         <button
           onClick={() => setMode("scan")}
@@ -116,22 +132,21 @@ const QRScanner = ({ onScan, scanCount }: QRScannerProps) => {
         </button>
       </div>
 
-      {/* Scan count warning */}
-      {scanCount > 0 && (
-        <div className="flex items-center gap-2 rounded-lg bg-warning/10 border border-warning/30 px-4 py-2 mb-4 w-full max-w-xs">
-          <AlertTriangle className="w-4 h-4 text-warning shrink-0" />
-          <span className="text-warning text-xs font-medium">
-            Peringatan: Scan ulang ke-{scanCount}/3. Setelah 3x, jawaban otomatis tersubmit.
-          </span>
+      {blockedUrls.length > 0 && (
+        <div className="rounded-lg bg-destructive/10 border border-destructive/30 px-4 py-3 mb-4 w-full max-w-xs">
+          <p className="text-destructive text-xs font-medium mb-1">Link yang diblokir:</p>
+          {blockedUrls.map((url) => (
+            <p key={url} className="text-destructive/80 text-xs font-mono break-all">
+              {url}
+            </p>
+          ))}
         </div>
       )}
 
       {mode === "scan" ? (
         <>
-          {/* Scanner area */}
           <div className="relative w-full max-w-xs aspect-square rounded-2xl overflow-hidden bg-secondary border-2 border-border">
             <div id={containerRef.current} className="w-full h-full" />
-            
             {isStarting && (
               <div className="absolute inset-0 flex items-center justify-center bg-secondary">
                 <div className="text-center">
@@ -140,7 +155,6 @@ const QRScanner = ({ onScan, scanCount }: QRScannerProps) => {
                 </div>
               </div>
             )}
-
             {!isStarting && !error && (
               <>
                 <div className="absolute inset-0 scanner-overlay pointer-events-none" />
@@ -154,7 +168,6 @@ const QRScanner = ({ onScan, scanCount }: QRScannerProps) => {
               </>
             )}
           </div>
-
           {error && (
             <div className="mt-4 text-center">
               <p className="text-destructive text-sm mb-3">{error}</p>
@@ -168,7 +181,6 @@ const QRScanner = ({ onScan, scanCount }: QRScannerProps) => {
           )}
         </>
       ) : (
-        /* Paste link area */
         <div className="w-full max-w-xs space-y-3">
           <div className="relative">
             <input
@@ -186,9 +198,7 @@ const QRScanner = ({ onScan, scanCount }: QRScannerProps) => {
               <ClipboardPaste className="w-4 h-4" />
             </button>
           </div>
-          {linkError && (
-            <p className="text-destructive text-xs">{linkError}</p>
-          )}
+          {linkError && <p className="text-destructive text-xs">{linkError}</p>}
           <button
             onClick={handlePasteSubmit}
             className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-semibold text-sm"
