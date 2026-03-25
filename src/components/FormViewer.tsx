@@ -105,7 +105,7 @@ const FormViewer = ({ url, onVisibilityViolation, violationCount, maxViolations 
             </p>
             {violationCount + 1 >= maxViolations && (
               <p className="text-warning/80 text-xs mt-1">
-                Ini adalah pelanggaran terakhir. Jawaban akan otomatis disubmit!
+                Ini adalah pelanggaran terakhir. Link akan diblokir!
               </p>
             )}
           </div>

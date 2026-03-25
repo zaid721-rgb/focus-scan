@@ -6,9 +6,11 @@ interface QRScannerProps {
   onScan: (url: string) => void;
   urlViolationMap: Map<string, number>;
   maxViolations: number;
+  userEmail: string;
+  onLogout: () => void;
 }
 
-const QRScanner = ({ onScan, urlViolationMap, maxViolations }: QRScannerProps) => {
+const QRScanner = ({ onScan, urlViolationMap, maxViolations, userEmail, onLogout }: QRScannerProps) => {
   const [error, setError] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(true);
   const [linkInput, setLinkInput] = useState("");
@@ -208,7 +210,20 @@ const QRScanner = ({ onScan, urlViolationMap, maxViolations }: QRScannerProps) =
         </div>
       )}
 
-      <p className="text-muted-foreground text-xs text-center mt-6 max-w-xs">
+      <div className="mt-6 w-full max-w-xs text-center">
+        <div className="rounded-lg bg-secondary border border-border px-4 py-2 mb-3">
+          <p className="text-muted-foreground text-xs">
+            Login: <span className="text-foreground font-medium">{userEmail}</span>
+          </p>
+        </div>
+        <button
+          onClick={onLogout}
+          className="text-destructive text-xs font-medium hover:underline"
+        >
+          Logout
+        </button>
+      </div>
+      <p className="text-muted-foreground text-xs text-center mt-4 max-w-xs">
         Hanya link Google Forms yang akan diterima
       </p>
     </div>
