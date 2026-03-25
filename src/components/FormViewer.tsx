@@ -21,23 +21,56 @@ const FormViewer = ({ url, onVisibilityViolation, violationCount, maxViolations 
     }
   }, []);
 
-  // Also detect window blur (split screen, app switch)
+  // Detect window blur (split screen, app switch, floating apps)
   const handleBlur = useCallback(() => {
     setTimeout(() => {
       if (!document.hasFocus()) {
         setShowWarning(true);
       }
-    }, 500);
+    }, 300);
+  }, []);
+
+  // Detect window resize (split screen, floating window, PiP)
+  const windowSizeRef = useRef({ w: window.innerWidth, h: window.innerHeight });
+  const handleResize = useCallback(() => {
+    const { w, h } = windowSizeRef.current;
+    const newW = window.innerWidth;
+    const newH = window.innerHeight;
+    // Significant resize indicates split screen or floating app
+    if (Math.abs(newW - w) > 50 || Math.abs(newH - h) > 80) {
+      setShowWarning(true);
+    }
+    windowSizeRef.current = { w: newW, h: newH };
+  }, []);
+
+  // Detect Picture-in-Picture
+  const handlePiP = useCallback(() => {
+    setShowWarning(true);
   }, []);
 
   useEffect(() => {
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("blur", handleBlur);
+    window.addEventListener("resize", handleResize);
+
+    // Detect PiP events
+    document.addEventListener("enterpictureinpicture", handlePiP);
+
+    // Detect multi-window / floating via focus polling (catches floating apps on Android)
+    const focusInterval = setInterval(() => {
+      if (!document.hasFocus() && !document.hidden) {
+        setShowWarning(true);
+      }
+    }, 2000);
+
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("blur", handleBlur);
+      window.removeEventListener("resize", handleResize);
+      document.removeEventListener("enterpictureinpicture", handlePiP);
+      clearInterval(focusInterval);
     };
-  }, [handleVisibilityChange, handleBlur]);
+  }, [handleVisibilityChange, handleBlur, handleResize, handlePiP]);
 
   const handleRescan = () => {
     setShowWarning(false);
