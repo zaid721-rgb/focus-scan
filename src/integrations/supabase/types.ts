@@ -14,7 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      url_violations: {
+        Row: {
+          blocked: boolean
+          created_at: string
+          form_url: string
+          id: string
+          updated_at: string
+          user_email: string
+          violation_count: number
+        }
+        Insert: {
+          blocked?: boolean
+          created_at?: string
+          form_url: string
+          id?: string
+          updated_at?: string
+          user_email: string
+          violation_count?: number
+        }
+        Update: {
+          blocked?: boolean
+          created_at?: string
+          form_url?: string
+          id?: string
+          updated_at?: string
+          user_email?: string
+          violation_count?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
