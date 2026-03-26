@@ -39,12 +39,53 @@ const Index = () => {
     setLoading(false);
   }, []);
 
-  // Check stored email on mount
+  // Check stored email on mount and detect reload-during-viewing
   useEffect(() => {
     const stored = localStorage.getItem("scanner_user_email");
     if (stored) {
       setUserEmail(stored);
-      loadViolations(stored).then(() => setState("scanning"));
+      loadViolations(stored).then(() => {
+        const viewingUrl = localStorage.getItem("scanner_viewing_url");
+        if (viewingUrl) {
+          // User reloaded while viewing a form — count as violation
+          localStorage.removeItem("scanner_viewing_url");
+          const currentViolations = urlViolationMap.current.get(viewingUrl) || 0;
+          const newCount = currentViolations + 1;
+          urlViolationMap.current.set(viewingUrl, newCount);
+
+          // Persist violation to DB
+          (async () => {
+            const { data: existing } = await supabase
+              .from("url_violations")
+              .select("id")
+              .eq("user_email", stored)
+              .eq("form_url", viewingUrl)
+              .maybeSingle();
+
+            if (existing) {
+              await supabase
+                .from("url_violations")
+                .update({ violation_count: newCount, blocked: newCount >= MAX_VIOLATIONS })
+                .eq("id", existing.id);
+            } else {
+              await supabase
+                .from("url_violations")
+                .insert({ user_email: stored, form_url: viewingUrl, violation_count: newCount, blocked: newCount >= MAX_VIOLATIONS });
+            }
+          })();
+
+          if (newCount >= MAX_VIOLATIONS) {
+            setBlockedUrl(viewingUrl);
+            setViolationCount(newCount);
+            setState("blocked");
+          } else {
+            setViolationCount(newCount);
+            setState("scanning");
+          }
+        } else {
+          setState("scanning");
+        }
+      });
     }
   }, [loadViolations]);
 
