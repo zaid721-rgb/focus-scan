@@ -115,6 +115,7 @@ const Index = () => {
     lastScannedUrl.current = url;
     setFormUrl(url);
     setViolationCount(currentViolations);
+    localStorage.setItem("scanner_viewing_url", url);
     setState("viewing");
   }, []);
 
@@ -153,6 +154,7 @@ const Index = () => {
   }, [userEmail]);
 
   const handleBackToScanner = useCallback(() => {
+    localStorage.removeItem("scanner_viewing_url");
     setState("scanning");
     setFormUrl("");
     setBlockedUrl("");
