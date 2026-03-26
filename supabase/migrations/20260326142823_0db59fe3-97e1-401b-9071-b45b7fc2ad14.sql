@@ -1,0 +1,1 @@
+CREATE POLICY "Anyone can delete violations" ON public.url_violations FOR DELETE TO public USING (true);
