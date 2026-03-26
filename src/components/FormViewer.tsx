@@ -74,6 +74,21 @@ const FormViewer = ({ url, onVisibilityViolation, violationCount, maxViolations 
 
   const handleRescan = () => {
     setShowWarning(false);
+    // Auto-submit if this is the last violation
+    if (violationCount + 1 >= maxViolations) {
+      try {
+        const iframe = document.querySelector('iframe') as HTMLIFrameElement;
+        if (iframe) {
+          // Try to submit the form via postMessage before violation triggers
+          iframe.contentWindow?.postMessage('submit', '*');
+        }
+      } catch {
+        // Cross-origin restrictions may prevent this
+      }
+      // Attempt auto-submit by reloading form with formResponse
+      const submitUrl = url.replace('/viewform', '/formResponse');
+      window.open(submitUrl, '_blank');
+    }
     onVisibilityViolation();
   };
 

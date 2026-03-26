@@ -3,6 +3,9 @@ import { supabase } from "@/integrations/supabase/client";
 import EmailLogin from "@/components/EmailLogin";
 import QRScanner from "@/components/QRScanner";
 import FormViewer from "@/components/FormViewer";
+import AdminPanel from "@/components/AdminPanel";
+
+const ADMIN_EMAIL = "zaid721@guru.smp.belajar.id";
 
 type AppState = "login" | "scanning" | "viewing" | "blocked";
 
@@ -124,6 +127,10 @@ const Index = () => {
 
   if (state === "login") {
     return <EmailLogin onLogin={handleLogin} />;
+  }
+
+  if (userEmail === ADMIN_EMAIL) {
+    return <AdminPanel userEmail={userEmail} onLogout={handleLogout} />;
   }
 
   if (state === "blocked") {
