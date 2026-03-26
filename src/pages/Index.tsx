@@ -145,6 +145,8 @@ const Index = () => {
         .insert({ user_email: userEmail, form_url: url, violation_count: newCount, blocked: newCount >= MAX_VIOLATIONS });
     }
 
+    localStorage.removeItem("scanner_viewing_url");
+
     if (newCount >= MAX_VIOLATIONS) {
       setBlockedUrl(url);
       setState("blocked");
