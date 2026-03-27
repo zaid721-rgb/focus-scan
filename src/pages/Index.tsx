@@ -24,6 +24,7 @@ const notifyTelegram = async (userEmail: string, formUrl: string, violationCount
 const Index = () => {
   const [state, setState] = useState<AppState>("login");
   const [userEmail, setUserEmail] = useState<string>("");
+  const [userName, setUserName] = useState<string>("");
   const [formUrl, setFormUrl] = useState<string>("");
   const [violationCount, setViolationCount] = useState(0);
   const [blockedUrl, setBlockedUrl] = useState<string>("");
@@ -52,8 +53,10 @@ const Index = () => {
   // Check stored email on mount and detect reload-during-viewing
   useEffect(() => {
     const stored = localStorage.getItem("scanner_user_email");
+    const storedName = localStorage.getItem("scanner_user_name") || "";
     if (stored) {
       setUserEmail(stored);
+      setUserName(storedName);
       loadViolations(stored).then(() => {
         const viewingUrl = localStorage.getItem("scanner_viewing_url");
         if (viewingUrl) {
@@ -101,16 +104,20 @@ const Index = () => {
     }
   }, [loadViolations]);
 
-  const handleLogin = useCallback(async (email: string) => {
+  const handleLogin = useCallback(async (email: string, name: string) => {
     setUserEmail(email);
+    setUserName(name);
     localStorage.setItem("scanner_user_email", email);
+    localStorage.setItem("scanner_user_name", name);
     await loadViolations(email);
     setState("scanning");
   }, [loadViolations]);
 
   const handleLogout = useCallback(() => {
     localStorage.removeItem("scanner_user_email");
+    localStorage.removeItem("scanner_user_name");
     setUserEmail("");
+    setUserName("");
     urlViolationMap.current = new Map();
     setState("login");
   }, []);
