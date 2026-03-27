@@ -11,6 +11,16 @@ type AppState = "login" | "scanning" | "viewing" | "blocked";
 
 const MAX_VIOLATIONS = 2;
 
+const notifyTelegram = async (userEmail: string, formUrl: string, violationCount: number, blocked: boolean) => {
+  try {
+    await supabase.functions.invoke("notify-violation", {
+      body: { user_email: userEmail, form_url: formUrl, violation_count: violationCount, blocked },
+    });
+  } catch (e) {
+    console.error("Telegram notification failed:", e);
+  }
+};
+
 const Index = () => {
   const [state, setState] = useState<AppState>("login");
   const [userEmail, setUserEmail] = useState<string>("");
@@ -55,6 +65,7 @@ const Index = () => {
 
           // Persist violation to DB
           (async () => {
+            const isBlocked = newCount >= MAX_VIOLATIONS;
             const { data: existing } = await supabase
               .from("url_violations")
               .select("id")
@@ -65,13 +76,14 @@ const Index = () => {
             if (existing) {
               await supabase
                 .from("url_violations")
-                .update({ violation_count: newCount, blocked: newCount >= MAX_VIOLATIONS })
+                .update({ violation_count: newCount, blocked: isBlocked })
                 .eq("id", existing.id);
             } else {
               await supabase
                 .from("url_violations")
-                .insert({ user_email: stored, form_url: viewingUrl, violation_count: newCount, blocked: newCount >= MAX_VIOLATIONS });
+                .insert({ user_email: stored, form_url: viewingUrl, violation_count: newCount, blocked: isBlocked });
             }
+            await notifyTelegram(stored, viewingUrl, newCount, isBlocked);
           })();
 
           if (newCount >= MAX_VIOLATIONS) {
@@ -123,6 +135,7 @@ const Index = () => {
     const url = lastScannedUrl.current;
     const current = urlViolationMap.current.get(url) || 0;
     const newCount = current + 1;
+    const isBlocked = newCount >= MAX_VIOLATIONS;
     urlViolationMap.current.set(url, newCount);
     setViolationCount(newCount);
 
@@ -137,17 +150,20 @@ const Index = () => {
     if (existing) {
       await supabase
         .from("url_violations")
-        .update({ violation_count: newCount, blocked: newCount >= MAX_VIOLATIONS })
+        .update({ violation_count: newCount, blocked: isBlocked })
         .eq("id", existing.id);
     } else {
       await supabase
         .from("url_violations")
-        .insert({ user_email: userEmail, form_url: url, violation_count: newCount, blocked: newCount >= MAX_VIOLATIONS });
+        .insert({ user_email: userEmail, form_url: url, violation_count: newCount, blocked: isBlocked });
     }
+
+    // Send Telegram notification
+    await notifyTelegram(userEmail, url, newCount, isBlocked);
 
     localStorage.removeItem("scanner_viewing_url");
 
-    if (newCount >= MAX_VIOLATIONS) {
+    if (isBlocked) {
       setBlockedUrl(url);
       setState("blocked");
     } else {
