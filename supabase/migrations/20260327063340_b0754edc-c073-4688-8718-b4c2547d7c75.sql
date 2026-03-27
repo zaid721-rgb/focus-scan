@@ -1,0 +1,1 @@
+ALTER TABLE public.url_violations ADD COLUMN user_name text;

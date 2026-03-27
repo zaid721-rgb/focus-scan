@@ -22,6 +22,7 @@ export type Database = {
           id: string
           updated_at: string
           user_email: string
+          user_name: string | null
           violation_count: number
         }
         Insert: {
@@ -31,6 +32,7 @@ export type Database = {
           id?: string
           updated_at?: string
           user_email: string
+          user_name?: string | null
           violation_count?: number
         }
         Update: {
@@ -40,6 +42,7 @@ export type Database = {
           id?: string
           updated_at?: string
           user_email?: string
+          user_name?: string | null
           violation_count?: number
         }
         Relationships: []
