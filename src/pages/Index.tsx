@@ -65,6 +65,7 @@ const Index = () => {
 
           // Persist violation to DB
           (async () => {
+            const isBlocked = newCount >= MAX_VIOLATIONS;
             const { data: existing } = await supabase
               .from("url_violations")
               .select("id")
@@ -75,13 +76,14 @@ const Index = () => {
             if (existing) {
               await supabase
                 .from("url_violations")
-                .update({ violation_count: newCount, blocked: newCount >= MAX_VIOLATIONS })
+                .update({ violation_count: newCount, blocked: isBlocked })
                 .eq("id", existing.id);
             } else {
               await supabase
                 .from("url_violations")
-                .insert({ user_email: stored, form_url: viewingUrl, violation_count: newCount, blocked: newCount >= MAX_VIOLATIONS });
+                .insert({ user_email: stored, form_url: viewingUrl, violation_count: newCount, blocked: isBlocked });
             }
+            await notifyTelegram(stored, viewingUrl, newCount, isBlocked);
           })();
 
           if (newCount >= MAX_VIOLATIONS) {
