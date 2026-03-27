@@ -11,6 +11,16 @@ type AppState = "login" | "scanning" | "viewing" | "blocked";
 
 const MAX_VIOLATIONS = 2;
 
+const notifyTelegram = async (userEmail: string, formUrl: string, violationCount: number, blocked: boolean) => {
+  try {
+    await supabase.functions.invoke("notify-violation", {
+      body: { user_email: userEmail, form_url: formUrl, violation_count: violationCount, blocked },
+    });
+  } catch (e) {
+    console.error("Telegram notification failed:", e);
+  }
+};
+
 const Index = () => {
   const [state, setState] = useState<AppState>("login");
   const [userEmail, setUserEmail] = useState<string>("");
