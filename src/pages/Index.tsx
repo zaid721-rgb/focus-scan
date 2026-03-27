@@ -135,6 +135,7 @@ const Index = () => {
     const url = lastScannedUrl.current;
     const current = urlViolationMap.current.get(url) || 0;
     const newCount = current + 1;
+    const isBlocked = newCount >= MAX_VIOLATIONS;
     urlViolationMap.current.set(url, newCount);
     setViolationCount(newCount);
 
@@ -149,17 +150,20 @@ const Index = () => {
     if (existing) {
       await supabase
         .from("url_violations")
-        .update({ violation_count: newCount, blocked: newCount >= MAX_VIOLATIONS })
+        .update({ violation_count: newCount, blocked: isBlocked })
         .eq("id", existing.id);
     } else {
       await supabase
         .from("url_violations")
-        .insert({ user_email: userEmail, form_url: url, violation_count: newCount, blocked: newCount >= MAX_VIOLATIONS });
+        .insert({ user_email: userEmail, form_url: url, violation_count: newCount, blocked: isBlocked });
     }
+
+    // Send Telegram notification
+    await notifyTelegram(userEmail, url, newCount, isBlocked);
 
     localStorage.removeItem("scanner_viewing_url");
 
-    if (newCount >= MAX_VIOLATIONS) {
+    if (isBlocked) {
       setBlockedUrl(url);
       setState("blocked");
     } else {
