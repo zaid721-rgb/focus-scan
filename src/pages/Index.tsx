@@ -11,10 +11,10 @@ type AppState = "login" | "scanning" | "viewing" | "blocked";
 
 const MAX_VIOLATIONS = 2;
 
-const notifyTelegram = async (userEmail: string, formUrl: string, violationCount: number, blocked: boolean) => {
+const notifyTelegram = async (userEmail: string, userName: string, formUrl: string, violationCount: number, blocked: boolean) => {
   try {
     await supabase.functions.invoke("notify-violation", {
-      body: { user_email: userEmail, form_url: formUrl, violation_count: violationCount, blocked },
+      body: { user_email: userEmail, user_name: userName, form_url: formUrl, violation_count: violationCount, blocked },
     });
   } catch (e) {
     console.error("Telegram notification failed:", e);
@@ -24,6 +24,7 @@ const notifyTelegram = async (userEmail: string, formUrl: string, violationCount
 const Index = () => {
   const [state, setState] = useState<AppState>("login");
   const [userEmail, setUserEmail] = useState<string>("");
+  const [userName, setUserName] = useState<string>("");
   const [formUrl, setFormUrl] = useState<string>("");
   const [violationCount, setViolationCount] = useState(0);
   const [blockedUrl, setBlockedUrl] = useState<string>("");
@@ -52,8 +53,10 @@ const Index = () => {
   // Check stored email on mount and detect reload-during-viewing
   useEffect(() => {
     const stored = localStorage.getItem("scanner_user_email");
+    const storedName = localStorage.getItem("scanner_user_name") || "";
     if (stored) {
       setUserEmail(stored);
+      setUserName(storedName);
       loadViolations(stored).then(() => {
         const viewingUrl = localStorage.getItem("scanner_viewing_url");
         if (viewingUrl) {
@@ -81,9 +84,9 @@ const Index = () => {
             } else {
               await supabase
                 .from("url_violations")
-                .insert({ user_email: stored, form_url: viewingUrl, violation_count: newCount, blocked: isBlocked });
+                .insert({ user_email: stored, user_name: storedName, form_url: viewingUrl, violation_count: newCount, blocked: isBlocked });
             }
-            await notifyTelegram(stored, viewingUrl, newCount, isBlocked);
+            await notifyTelegram(stored, storedName, viewingUrl, newCount, isBlocked);
           })();
 
           if (newCount >= MAX_VIOLATIONS) {
@@ -101,16 +104,20 @@ const Index = () => {
     }
   }, [loadViolations]);
 
-  const handleLogin = useCallback(async (email: string) => {
+  const handleLogin = useCallback(async (email: string, name: string) => {
     setUserEmail(email);
+    setUserName(name);
     localStorage.setItem("scanner_user_email", email);
+    localStorage.setItem("scanner_user_name", name);
     await loadViolations(email);
     setState("scanning");
   }, [loadViolations]);
 
   const handleLogout = useCallback(() => {
     localStorage.removeItem("scanner_user_email");
+    localStorage.removeItem("scanner_user_name");
     setUserEmail("");
+    setUserName("");
     urlViolationMap.current = new Map();
     setState("login");
   }, []);
@@ -155,11 +162,11 @@ const Index = () => {
     } else {
       await supabase
         .from("url_violations")
-        .insert({ user_email: userEmail, form_url: url, violation_count: newCount, blocked: isBlocked });
+        .insert({ user_email: userEmail, user_name: userName, form_url: url, violation_count: newCount, blocked: isBlocked });
     }
 
     // Send Telegram notification
-    await notifyTelegram(userEmail, url, newCount, isBlocked);
+    await notifyTelegram(userEmail, userName, url, newCount, isBlocked);
 
     localStorage.removeItem("scanner_viewing_url");
 
