@@ -84,9 +84,9 @@ const Index = () => {
             } else {
               await supabase
                 .from("url_violations")
-                .insert({ user_email: stored, form_url: viewingUrl, violation_count: newCount, blocked: isBlocked });
+                .insert({ user_email: stored, user_name: storedName, form_url: viewingUrl, violation_count: newCount, blocked: isBlocked });
             }
-            await notifyTelegram(stored, viewingUrl, newCount, isBlocked);
+            await notifyTelegram(stored, storedName, viewingUrl, newCount, isBlocked);
           })();
 
           if (newCount >= MAX_VIOLATIONS) {
@@ -162,11 +162,11 @@ const Index = () => {
     } else {
       await supabase
         .from("url_violations")
-        .insert({ user_email: userEmail, form_url: url, violation_count: newCount, blocked: isBlocked });
+        .insert({ user_email: userEmail, user_name: userName, form_url: url, violation_count: newCount, blocked: isBlocked });
     }
 
     // Send Telegram notification
-    await notifyTelegram(userEmail, url, newCount, isBlocked);
+    await notifyTelegram(userEmail, userName, url, newCount, isBlocked);
 
     localStorage.removeItem("scanner_viewing_url");
 
