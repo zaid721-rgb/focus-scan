@@ -78,10 +78,15 @@ const FormViewer = ({ url, onVisibilityViolation, violationCount, maxViolations 
   };
 
   // Convert URL to embeddable format
+  const getDriveFileId = (rawUrl: string) => {
+    const match = rawUrl.match(/\/file\/d\/([^/]+)/);
+    return match?.[1] ?? null;
+  };
+
   const getEmbedUrl = (rawUrl: string) => {
     // Google Forms
     if (rawUrl.includes("docs.google.com/forms") || rawUrl.includes("forms.gle")) {
-      return rawUrl.includes("?") ? rawUrl : rawUrl + "?embedded=true";
+      return rawUrl.includes("?") ? `${rawUrl}&embedded=true` : `${rawUrl}?embedded=true`;
     }
     // Google Docs - convert to preview
     if (rawUrl.includes("docs.google.com/document")) {
@@ -95,11 +100,15 @@ const FormViewer = ({ url, onVisibilityViolation, violationCount, maxViolations 
     if (rawUrl.includes("docs.google.com/presentation")) {
       return rawUrl.replace(/\/edit.*$/, "/embed?start=false&loop=false&delayms=3000");
     }
-    // Google Drive file - convert to preview
+    // Google Drive file - use direct preview URL based on file id
     if (rawUrl.includes("drive.google.com/file")) {
-      return rawUrl.replace(/\/view.*$/, "/preview");
+      const fileId = getDriveFileId(rawUrl);
+      return fileId ? `https://drive.google.com/file/d/${fileId}/preview` : rawUrl.replace(/\/view.*$/, "/preview");
     }
-    // PDF or other direct links
+    // Direct PDF link - use Google Docs viewer for better mobile compatibility
+    if (rawUrl.toLowerCase().endsWith(".pdf") || rawUrl.includes("/pdf")) {
+      return `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(rawUrl)}`;
+    }
     return rawUrl;
   };
 
@@ -108,6 +117,7 @@ const FormViewer = ({ url, onVisibilityViolation, violationCount, maxViolations 
     if (rawUrl.includes("docs.google.com/document")) return "Google Docs";
     if (rawUrl.includes("docs.google.com/spreadsheets")) return "Google Sheets";
     if (rawUrl.includes("docs.google.com/presentation")) return "Google Slides";
+    if (rawUrl.includes("drive.google.com/file")) return "Google Drive File";
     if (rawUrl.includes("drive.google.com")) return "Google Drive";
     if (rawUrl.toLowerCase().endsWith(".pdf") || rawUrl.includes("/pdf")) return "PDF";
     return "Dokumen";
