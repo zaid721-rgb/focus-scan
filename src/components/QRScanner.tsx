@@ -19,8 +19,23 @@ const QRScanner = ({ onScan, urlViolationMap, maxViolations, userEmail, onLogout
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const containerRef = useRef<string>("qr-reader-" + Date.now());
 
-  const isValidFormUrl = (url: string) =>
-    url.includes("docs.google.com/forms") || url.includes("forms.gle");
+  const isValidUrl = (url: string) => {
+    try {
+      new URL(url);
+      return (
+        url.includes("docs.google.com/forms") ||
+        url.includes("forms.gle") ||
+        url.includes("docs.google.com/document") ||
+        url.includes("drive.google.com") ||
+        url.toLowerCase().endsWith(".pdf") ||
+        url.includes("/pdf") ||
+        url.includes("docs.google.com/spreadsheets") ||
+        url.includes("docs.google.com/presentation")
+      );
+    } catch {
+      return false;
+    }
+  };
 
   const isBlocked = (url: string) =>
     (urlViolationMap.get(url) || 0) >= maxViolations;
@@ -31,8 +46,8 @@ const QRScanner = ({ onScan, urlViolationMap, maxViolations, userEmail, onLogout
       setLinkError("Masukkan link Google Form");
       return;
     }
-    if (!isValidFormUrl(trimmed)) {
-      setLinkError("Link harus berupa Google Form (docs.google.com/forms atau forms.gle)");
+    if (!isValidUrl(trimmed)) {
+      setLinkError("Link harus berupa Google Form, Google Docs, Google Drive, atau PDF");
       return;
     }
     if (isBlocked(trimmed)) {
@@ -65,7 +80,7 @@ const QRScanner = ({ onScan, urlViolationMap, maxViolations, userEmail, onLogout
         { facingMode: "environment" },
         { fps: 10, qrbox: { width: 250, height: 250 } },
         (decodedText) => {
-          if (isValidFormUrl(decodedText)) {
+          if (isValidUrl(decodedText)) {
             if (isBlocked(decodedText)) {
               setError("Link ini telah diblokir karena terlalu banyak pelanggaran.");
               scanner.stop().catch(console.error);
@@ -108,8 +123,8 @@ const QRScanner = ({ onScan, urlViolationMap, maxViolations, userEmail, onLogout
         </h1>
         <p className="text-muted-foreground text-sm">
           {mode === "scan"
-            ? "Arahkan kamera ke QR code Google Form"
-            : "Tempelkan link Google Form di bawah"}
+            ? "Arahkan kamera ke QR code formulir atau dokumen"
+            : "Tempelkan link Google Form, Docs, atau PDF"}
         </p>
       </div>
 
@@ -189,7 +204,7 @@ const QRScanner = ({ onScan, urlViolationMap, maxViolations, userEmail, onLogout
               type="url"
               value={linkInput}
               onChange={(e) => { setLinkInput(e.target.value); setLinkError(null); }}
-              placeholder="https://docs.google.com/forms/..."
+              placeholder="https://docs.google.com/forms/... atau link PDF"
               className="w-full rounded-xl bg-secondary border-2 border-border px-4 py-3 pr-12 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
             />
             <button
@@ -224,7 +239,7 @@ const QRScanner = ({ onScan, urlViolationMap, maxViolations, userEmail, onLogout
         </button>
       </div>
       <p className="text-muted-foreground text-xs text-center mt-4 max-w-xs">
-        Hanya link Google Forms yang akan diterima
+        Mendukung: Google Forms, Google Docs, Google Drive, PDF
       </p>
     </div>
   );

@@ -77,15 +77,40 @@ const FormViewer = ({ url, onVisibilityViolation, violationCount, maxViolations 
     onVisibilityViolation();
   };
 
-  // Convert Google Form URL to embeddable
-  const getEmbedUrl = (formUrl: string) => {
-    if (formUrl.includes("/viewform")) {
-      return formUrl;
+  // Convert URL to embeddable format
+  const getEmbedUrl = (rawUrl: string) => {
+    // Google Forms
+    if (rawUrl.includes("docs.google.com/forms") || rawUrl.includes("forms.gle")) {
+      return rawUrl.includes("?") ? rawUrl : rawUrl + "?embedded=true";
     }
-    if (formUrl.includes("forms.gle")) {
-      return formUrl;
+    // Google Docs - convert to preview
+    if (rawUrl.includes("docs.google.com/document")) {
+      return rawUrl.replace(/\/edit.*$/, "/preview");
     }
-    return formUrl.includes("?") ? formUrl : formUrl + "?embedded=true";
+    // Google Sheets - convert to preview
+    if (rawUrl.includes("docs.google.com/spreadsheets")) {
+      return rawUrl.replace(/\/edit.*$/, "/preview");
+    }
+    // Google Slides - convert to embed
+    if (rawUrl.includes("docs.google.com/presentation")) {
+      return rawUrl.replace(/\/edit.*$/, "/embed?start=false&loop=false&delayms=3000");
+    }
+    // Google Drive file - convert to preview
+    if (rawUrl.includes("drive.google.com/file")) {
+      return rawUrl.replace(/\/view.*$/, "/preview");
+    }
+    // PDF or other direct links
+    return rawUrl;
+  };
+
+  const getLinkType = (rawUrl: string): string => {
+    if (rawUrl.includes("docs.google.com/forms") || rawUrl.includes("forms.gle")) return "Google Form";
+    if (rawUrl.includes("docs.google.com/document")) return "Google Docs";
+    if (rawUrl.includes("docs.google.com/spreadsheets")) return "Google Sheets";
+    if (rawUrl.includes("docs.google.com/presentation")) return "Google Slides";
+    if (rawUrl.includes("drive.google.com")) return "Google Drive";
+    if (rawUrl.toLowerCase().endsWith(".pdf") || rawUrl.includes("/pdf")) return "PDF";
+    return "Dokumen";
   };
 
   if (showWarning) {
@@ -127,7 +152,7 @@ const FormViewer = ({ url, onVisibilityViolation, violationCount, maxViolations 
       <div className="flex items-center gap-2 px-4 py-2 bg-secondary border-b border-border shrink-0">
         <Shield className="w-4 h-4 text-primary" />
         <span className="text-xs font-medium text-secondary-foreground truncate flex-1">
-          Mode Aman Aktif
+          Mode Aman — {getLinkType(url)}
         </span>
         <span className="text-xs text-muted-foreground">
           {violationCount}/{maxViolations}
@@ -138,9 +163,9 @@ const FormViewer = ({ url, onVisibilityViolation, violationCount, maxViolations 
       <iframe
         src={getEmbedUrl(url)}
         className="flex-1 w-full border-none bg-foreground"
-        title="Google Form"
+        title={getLinkType(url)}
         allow="camera; microphone"
-        sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
       />
     </div>
   );
