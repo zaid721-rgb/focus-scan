@@ -18,6 +18,10 @@ const QRScanner = ({ onScan, urlViolationMap, maxViolations, userEmail, onLogout
   const [mode, setMode] = useState<"scan" | "paste">("scan");
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const containerRef = useRef<string>("qr-reader-" + Date.now());
+  const onScanRef = useRef(onScan);
+  onScanRef.current = onScan;
+  const urlViolationMapRef = useRef(urlViolationMap);
+  urlViolationMapRef.current = urlViolationMap;
 
   const isValidUrl = (url: string) => {
     try {
@@ -75,20 +79,32 @@ const QRScanner = ({ onScan, urlViolationMap, maxViolations, userEmail, onLogout
     try {
       const scanner = new Html5Qrcode(containerRef.current);
       scannerRef.current = scanner;
+      let processed = false;
 
       await scanner.start(
         { facingMode: "environment" },
         { fps: 10, qrbox: { width: 250, height: 250 } },
         (decodedText) => {
-          if (isValidUrl(decodedText)) {
-            if (isBlocked(decodedText)) {
-              setError("Link ini telah diblokir karena terlalu banyak pelanggaran.");
-              scanner.stop().catch(console.error);
-              return;
-            }
+          if (processed) return;
+          
+          if (!isValidUrl(decodedText)) {
+            processed = true;
             scanner.stop().catch(console.error);
-            onScan(decodedText);
+            setError(`Link tidak didukung: "${decodedText.substring(0, 60)}...". Hanya Google Forms, Docs, Drive, dan PDF yang didukung.`);
+            return;
           }
+
+          const violations = urlViolationMapRef.current.get(decodedText) || 0;
+          if (violations >= maxViolations) {
+            processed = true;
+            scanner.stop().catch(console.error);
+            setError("Link ini telah diblokir karena terlalu banyak pelanggaran.");
+            return;
+          }
+
+          processed = true;
+          scanner.stop().catch(console.error);
+          onScanRef.current(decodedText);
         },
         () => {}
       );
@@ -97,7 +113,7 @@ const QRScanner = ({ onScan, urlViolationMap, maxViolations, userEmail, onLogout
       setError("Tidak dapat mengakses kamera. Pastikan izin kamera telah diberikan.");
       setIsStarting(false);
     }
-  }, [onScan, urlViolationMap, maxViolations]);
+  }, [maxViolations]);
 
   useEffect(() => {
     startScanner();
