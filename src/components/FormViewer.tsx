@@ -162,10 +162,10 @@ const FormViewer = ({ url, onVisibilityViolation, violationCount, maxViolations 
       {/* Form iframe */}
       <iframe
         src={getEmbedUrl(url)}
-        className="flex-1 w-full border-none bg-foreground"
+        className="flex-1 w-full border-none bg-background"
         title={getLinkType(url)}
         allow="camera; microphone"
-        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads"
       />
     </div>
   );
