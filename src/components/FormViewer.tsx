@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Shield, AlertTriangle, RotateCcw } from "lucide-react";
+import { Shield, AlertTriangle, RotateCcw, ExternalLink } from "lucide-react";
 
 interface FormViewerProps {
   url: string;
@@ -10,6 +10,7 @@ interface FormViewerProps {
 
 const FormViewer = ({ url, onVisibilityViolation, violationCount, maxViolations }: FormViewerProps) => {
   const [showWarning, setShowWarning] = useState(false);
+  const [iframeError, setIframeError] = useState(false);
   const wasHiddenRef = useRef(false);
 
   const handleVisibilityChange = useCallback(() => {
@@ -21,7 +22,6 @@ const FormViewer = ({ url, onVisibilityViolation, violationCount, maxViolations 
     }
   }, []);
 
-  // Detect window blur (split screen, app switch, floating apps)
   const handleBlur = useCallback(() => {
     setTimeout(() => {
       if (!document.hasFocus()) {
@@ -30,20 +30,17 @@ const FormViewer = ({ url, onVisibilityViolation, violationCount, maxViolations 
     }, 300);
   }, []);
 
-  // Detect window resize (split screen, floating window, PiP)
   const windowSizeRef = useRef({ w: window.innerWidth, h: window.innerHeight });
   const handleResize = useCallback(() => {
     const { w, h } = windowSizeRef.current;
     const newW = window.innerWidth;
     const newH = window.innerHeight;
-    // Significant resize indicates split screen or floating app
     if (Math.abs(newW - w) > 50 || Math.abs(newH - h) > 80) {
       setShowWarning(true);
     }
     windowSizeRef.current = { w: newW, h: newH };
   }, []);
 
-  // Detect Picture-in-Picture
   const handlePiP = useCallback(() => {
     setShowWarning(true);
   }, []);
@@ -52,11 +49,8 @@ const FormViewer = ({ url, onVisibilityViolation, violationCount, maxViolations 
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("blur", handleBlur);
     window.addEventListener("resize", handleResize);
-
-    // Detect PiP events
     document.addEventListener("enterpictureinpicture", handlePiP);
 
-    // Detect multi-window / floating via focus polling (catches floating apps on Android)
     const focusInterval = setInterval(() => {
       if (!document.hasFocus() && !document.hidden) {
         setShowWarning(true);
@@ -77,35 +71,32 @@ const FormViewer = ({ url, onVisibilityViolation, violationCount, maxViolations 
     onVisibilityViolation();
   };
 
-  // Convert URL to embeddable format
   const getDriveFileId = (rawUrl: string) => {
     const match = rawUrl.match(/\/file\/d\/([^/]+)/);
     return match?.[1] ?? null;
   };
 
   const getEmbedUrl = (rawUrl: string) => {
-    // Google Forms
     if (rawUrl.includes("docs.google.com/forms") || rawUrl.includes("forms.gle")) {
       return rawUrl.includes("?") ? `${rawUrl}&embedded=true` : `${rawUrl}?embedded=true`;
     }
-    // Google Docs - convert to preview
     if (rawUrl.includes("docs.google.com/document")) {
       return rawUrl.replace(/\/edit.*$/, "/preview");
     }
-    // Google Sheets - convert to preview
     if (rawUrl.includes("docs.google.com/spreadsheets")) {
       return rawUrl.replace(/\/edit.*$/, "/preview");
     }
-    // Google Slides - convert to embed
     if (rawUrl.includes("docs.google.com/presentation")) {
       return rawUrl.replace(/\/edit.*$/, "/embed?start=false&loop=false&delayms=3000");
     }
-    // Google Drive file - use direct preview URL based on file id
     if (rawUrl.includes("drive.google.com/file")) {
       const fileId = getDriveFileId(rawUrl);
-      return fileId ? `https://drive.google.com/file/d/${fileId}/preview` : rawUrl.replace(/\/view.*$/, "/preview");
+      if (fileId) {
+        // Use Google Docs viewer for better mobile PDF support
+        return `https://docs.google.com/viewer?embedded=true&url=https://drive.google.com/uc?id=${fileId}`;
+      }
+      return rawUrl.replace(/\/view.*$/, "/preview");
     }
-    // Direct PDF link - use Google Docs viewer for better mobile compatibility
     if (rawUrl.toLowerCase().endsWith(".pdf") || rawUrl.includes("/pdf")) {
       return `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(rawUrl)}`;
     }
@@ -123,6 +114,10 @@ const FormViewer = ({ url, onVisibilityViolation, violationCount, maxViolations 
     return "Dokumen";
   };
 
+  const handleOpenExternal = () => {
+    window.open(url, "_blank");
+  };
+
   if (showWarning) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen px-4">
@@ -132,7 +127,7 @@ const FormViewer = ({ url, onVisibilityViolation, violationCount, maxViolations 
           </div>
           <h2 className="text-xl font-bold text-foreground mb-2">Pelanggaran Terdeteksi!</h2>
           <p className="text-muted-foreground text-sm mb-2">
-            Anda terdeteksi meninggalkan halaman formulir. Ini tidak diperbolehkan.
+            Anda terdeteksi meninggalkan halaman ujian. Ini tidak diperbolehkan.
           </p>
           <div className="rounded-lg bg-warning/10 border border-warning/30 px-4 py-3 mb-6">
             <p className="text-warning text-sm font-medium">
@@ -140,7 +135,7 @@ const FormViewer = ({ url, onVisibilityViolation, violationCount, maxViolations 
             </p>
             {violationCount + 1 >= maxViolations && (
               <p className="text-warning/80 text-xs mt-1">
-                Ini adalah pelanggaran terakhir. Link akan diblokir!
+                Ini adalah pelanggaran terakhir. Akses akan diblokir!
               </p>
             )}
           </div>
@@ -149,7 +144,7 @@ const FormViewer = ({ url, onVisibilityViolation, violationCount, maxViolations 
             className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-semibold text-sm"
           >
             <RotateCcw className="w-4 h-4" />
-            Scan Ulang QR Code
+            Kembali
           </button>
         </div>
       </div>
@@ -169,6 +164,20 @@ const FormViewer = ({ url, onVisibilityViolation, violationCount, maxViolations 
         </span>
       </div>
 
+      {/* Fallback button for mobile PDF issues */}
+      {(url.includes("drive.google.com/file") || url.toLowerCase().includes(".pdf")) && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-accent/50 border-b border-border shrink-0">
+          <span className="text-xs text-muted-foreground flex-1">Dokumen tidak muncul?</span>
+          <button
+            onClick={handleOpenExternal}
+            className="inline-flex items-center gap-1 text-xs text-primary font-medium"
+          >
+            <ExternalLink className="w-3 h-3" />
+            Buka di tab baru
+          </button>
+        </div>
+      )}
+
       {/* Form iframe */}
       <iframe
         src={getEmbedUrl(url)}
@@ -176,7 +185,17 @@ const FormViewer = ({ url, onVisibilityViolation, violationCount, maxViolations 
         title={getLinkType(url)}
         allow="camera; microphone"
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads"
+        onError={() => setIframeError(true)}
       />
+
+      {iframeError && (
+        <div className="p-4 text-center">
+          <p className="text-sm text-muted-foreground mb-2">Gagal memuat dokumen</p>
+          <button onClick={handleOpenExternal} className="text-primary text-sm font-medium inline-flex items-center gap-1">
+            <ExternalLink className="w-4 h-4" /> Buka di tab baru
+          </button>
+        </div>
+      )}
     </div>
   );
 };
