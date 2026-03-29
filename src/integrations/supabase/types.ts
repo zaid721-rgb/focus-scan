@@ -14,6 +14,60 @@ export type Database = {
   }
   public: {
     Tables: {
+      exam_sessions: {
+        Row: {
+          blocked: boolean
+          exam_url: string
+          id: string
+          started_at: string
+          student_name: string
+          subject: string
+          violation_count: number
+        }
+        Insert: {
+          blocked?: boolean
+          exam_url: string
+          id?: string
+          started_at?: string
+          student_name: string
+          subject: string
+          violation_count?: number
+        }
+        Update: {
+          blocked?: boolean
+          exam_url?: string
+          id?: string
+          started_at?: string
+          student_name?: string
+          subject?: string
+          violation_count?: number
+        }
+        Relationships: []
+      }
+      exams: {
+        Row: {
+          created_at: string
+          exam_url: string
+          id: string
+          student_name: string
+          subject: string
+        }
+        Insert: {
+          created_at?: string
+          exam_url: string
+          id?: string
+          student_name: string
+          subject: string
+        }
+        Update: {
+          created_at?: string
+          exam_url?: string
+          id?: string
+          student_name?: string
+          subject?: string
+        }
+        Relationships: []
+      }
       url_violations: {
         Row: {
           blocked: boolean
