@@ -17,10 +17,18 @@ serve(async (req) => {
     const TELEGRAM_CHAT_ID = Deno.env.get('TELEGRAM_CHAT_ID');
     if (!TELEGRAM_CHAT_ID) throw new Error('TELEGRAM_CHAT_ID not configured');
 
-    const { user_email, user_name, form_url, violation_count, blocked } = await req.json();
+    const { type, user_name, user_email, subject, form_url, violation_count, blocked } = await req.json();
 
-    const status = blocked ? '🚫 DIBLOKIR' : `⚠️ Pelanggaran ke-${violation_count}`;
-    const message = `${status}\n\n👤 Nama: ${user_name || '-'}\n📧 Email: ${user_email}\n📋 Form: ${form_url}\n📊 Total pelanggaran: ${violation_count}${blocked ? '\n\n❌ Link telah diblokir untuk siswa ini.' : ''}`;
+    let message: string;
+
+    if (type === "exam_start") {
+      message = `📝 SISWA MEMULAI UJIAN\n\n👤 Nama: ${user_name}\n📚 Mapel: ${subject}\n📋 Link: ${form_url}`;
+    } else {
+      const status = blocked ? '🚫 DIBLOKIR' : `⚠️ Pelanggaran ke-${violation_count}`;
+      const nameDisplay = user_name || user_email || '-';
+      const subjectDisplay = subject ? `\n📚 Mapel: ${subject}` : '';
+      message = `${status}\n\n👤 Nama: ${nameDisplay}${subjectDisplay}\n📋 Link: ${form_url}\n📊 Total pelanggaran: ${violation_count}${blocked ? '\n\n❌ Akses ujian telah diblokir untuk siswa ini.' : ''}`;
+    }
 
     const telegramRes = await fetch(
       `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
