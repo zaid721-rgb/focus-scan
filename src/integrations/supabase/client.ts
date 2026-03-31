@@ -2,17 +2,14 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL?.trim();
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim();
+// Sementara, gunakan endpoint Lovable bawaan (default) agar deploy langsung jalan tanpa secrets.
+// Anda bisa kembalikan ke Supabase URL asli nanti jika sudah siap.
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL?.trim() || "https://ivvfhzriavnxabrnepop.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY =
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() ||
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2dmZoenJpYXZueGFicm5lcG9wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NTIwNjQsImV4cCI6MjA5MDAyODA2NH0.41zvdb2GhBiq_qrspX1OfsBZRqumjrvpmOjBp5C7k-Y";
 
-export const supabaseConfigError =
-  !SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY
-    ? "Supabase belum dikonfigurasi. Isi VITE_SUPABASE_URL dan VITE_SUPABASE_PUBLISHABLE_KEY di file .env lokal atau GitHub Secrets."
-    : null;
-
-const FALLBACK_SUPABASE_URL = "https://example.supabase.co";
-const FALLBACK_SUPABASE_PUBLISHABLE_KEY = "public-anon-placeholder-key";
-
+export const supabaseConfigError = null;
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 // Gunakan hanya publishable/anon key di frontend. Jangan taruh service_role key di sini.
