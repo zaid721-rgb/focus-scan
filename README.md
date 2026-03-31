@@ -16,7 +16,14 @@ Aplikasi monitoring ujian berbasis `React + Vite + Supabase`.
 2. Isi hanya:
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_PUBLISHABLE_KEY`
+   - `VITE_PUBLIC_BASE_PATH` (contoh: `/focus-scan/` untuk GitHub Pages)
 3. **Jangan pernah** menaruh `service_role key` di frontend.
 4. File `.env` sudah ditambahkan ke `.gitignore` agar tidak ikut ter-commit.
+
+## 🌐 Jika deploy ke GitHub Pages tapi blank page
+
+Penyebab paling umum:
+- asset path Vite belum memakai base path repository, sehingga file JS/CSS gagal dimuat
+- `VITE_SUPABASE_URL` dan `VITE_SUPABASE_PUBLISHABLE_KEY` belum diset di GitHub Actions / Secrets
 
 > Jika `.env` sempat ter-publish ke repository, sebaiknya lakukan **rotate key** dari dashboard Supabase.
