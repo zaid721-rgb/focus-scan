@@ -1,59 +1,165 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { BookOpen, ArrowRight, User } from "lucide-react";
+import { toast } from "sonner";
 
 interface StudentLoginProps {
   onStart: (studentName: string, subject: string, examUrl: string) => void;
 }
 
+type ExamOption = {
+  student_name: string;
+  subject: string;
+};
+
+const ADMIN_NAME = "zaid721@guru.smp.belajar.id";
+const ADMIN_SUBJECT = "TIK";
+
+const normalizeValue = (value: string) => value.trim().toLowerCase();
+
 const StudentLogin = ({ onStart }: StudentLoginProps) => {
-  const [students, setStudents] = useState<string[]>([]);
-  const [subjects, setSubjects] = useState<string[]>([]);
+  const [examOptions, setExamOptions] = useState<ExamOption[]>([]);
   const [selectedName, setSelectedName] = useState("");
   const [selectedSubject, setSelectedSubject] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
+
     const fetchData = async () => {
-      const { data } = await supabase.from("exams").select("student_name, subject");
-      if (data) {
-        const names = [...new Set(data.map((d: any) => d.student_name))].sort();
-        const subs = [...new Set(data.map((d: any) => d.subject))].sort();
-        setStudents(names);
-        setSubjects(subs);
+      setLoading(true);
+      const { data, error: fetchError } = await supabase
+        .from("exams")
+        .select("student_name, subject");
+
+      if (!isMounted) return;
+
+      if (fetchError) {
+        setError("Gagal memuat data login dari database.");
+        toast.error("Data login dari Supabase gagal dimuat.");
+        setLoading(false);
+        return;
       }
+
+      const visibleOptions = (data ?? []).filter((row) => {
+        return !(
+          normalizeValue(row.student_name) === normalizeValue(ADMIN_NAME) &&
+          normalizeValue(row.subject) === normalizeValue(ADMIN_SUBJECT)
+        );
+      });
+
+      setExamOptions(visibleOptions);
       setLoading(false);
     };
+
     fetchData();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
+
+  const nameSuggestions = useMemo(() => {
+    const nameKeyword = normalizeValue(selectedName);
+    const subjectKeyword = normalizeValue(selectedSubject);
+
+    if (!nameKeyword) return [];
+
+    return [...new Set(
+      examOptions
+        .filter((row) => {
+          return !subjectKeyword || normalizeValue(row.subject).includes(subjectKeyword);
+        })
+        .map((row) => row.student_name.trim())
+        .filter((name) => name && normalizeValue(name).includes(nameKeyword))
+    )]
+      .sort((a, b) => a.localeCompare(b, "id-ID"))
+      .slice(0, 8);
+  }, [examOptions, selectedName, selectedSubject]);
+
+  const subjectSuggestions = useMemo(() => {
+    const subjectKeyword = normalizeValue(selectedSubject);
+    const nameKeyword = normalizeValue(selectedName);
+
+    if (!subjectKeyword) return [];
+
+    return [...new Set(
+      examOptions
+        .filter((row) => {
+          return !nameKeyword || normalizeValue(row.student_name).includes(nameKeyword);
+        })
+        .map((row) => row.subject.trim())
+        .filter((subject) => subject && normalizeValue(subject).includes(subjectKeyword))
+    )]
+      .sort((a, b) => a.localeCompare(b, "id-ID"))
+      .slice(0, 8);
+  }, [examOptions, selectedName, selectedSubject]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedName) { setError("Pilih nama Anda"); return; }
-    if (!selectedSubject) { setError("Pilih mata pelajaran"); return; }
 
-    // Check for admin access
-    if (selectedName === "zaid721@guru.smp.belajar.id" && selectedSubject === "TIK") {
-      onStart(selectedName, selectedSubject, "__ADMIN__");
+    const typedName = selectedName.trim();
+    const typedSubject = selectedSubject.trim();
+
+    if (!typedName) {
+      const message = "Nama siswa wajib diisi.";
+      setError(message);
+      toast.error(message);
       return;
     }
 
-    // Find exam URL
-    const { data } = await supabase
+    if (!typedSubject) {
+      const message = "Mata pelajaran wajib diisi.";
+      setError(message);
+      toast.error(message);
+      return;
+    }
+
+    if (
+      normalizeValue(typedName) === normalizeValue(ADMIN_NAME) &&
+      normalizeValue(typedSubject) === normalizeValue(ADMIN_SUBJECT)
+    ) {
+      setError(null);
+      onStart(ADMIN_NAME, ADMIN_SUBJECT, "__ADMIN__");
+      return;
+    }
+
+    const matchedOption = examOptions.find((row) => {
+      return (
+        normalizeValue(row.student_name) === normalizeValue(typedName) &&
+        normalizeValue(row.subject) === normalizeValue(typedSubject)
+      );
+    });
+
+    if (!matchedOption) {
+      const message = "Nama dan mata pelajaran harus dipilih dari rekomendasi data admin.";
+      setError(message);
+      toast.error(message);
+      return;
+    }
+
+    setSubmitting(true);
+
+    const { data, error: examError } = await supabase
       .from("exams")
       .select("exam_url")
-      .eq("student_name", selectedName)
-      .eq("subject", selectedSubject)
+      .eq("student_name", matchedOption.student_name)
+      .eq("subject", matchedOption.subject)
       .maybeSingle();
 
-    if (!data) {
-      setError("Tidak ada ujian untuk kombinasi nama dan mata pelajaran ini");
+    setSubmitting(false);
+
+    if (examError || !data?.exam_url) {
+      const message = "Kombinasi nama dan mata pelajaran tidak valid. Silakan cek lagi.";
+      setError(message);
+      toast.error(message);
       return;
     }
 
     setError(null);
-    onStart(selectedName, selectedSubject, data.exam_url);
+    onStart(matchedOption.student_name, matchedOption.subject, data.exam_url);
   };
 
   if (loading) {
@@ -73,58 +179,87 @@ const StudentLogin = ({ onStart }: StudentLoginProps) => {
           </div>
           <h1 className="text-2xl font-bold text-foreground mb-2">Mulai Ujian</h1>
           <p className="text-muted-foreground text-sm">
-            Pilih nama dan mata pelajaran untuk memulai ujian
+            Ketik nama dan mata pelajaran, lalu pilih rekomendasi dari data admin.
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Nama Siswa</label>
+            <label htmlFor="student-name" className="text-xs font-medium text-muted-foreground mb-1.5 block">
+              Nama Siswa
+            </label>
             <div className="relative">
               <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <select
+              <input
+                id="student-name"
+                list="student-name-suggestions"
                 value={selectedName}
-                onChange={(e) => { setSelectedName(e.target.value); setError(null); }}
-                className="w-full rounded-xl bg-secondary border-2 border-border pl-10 pr-4 py-3 text-sm text-foreground focus:outline-none focus:border-primary transition-colors appearance-none"
-              >
-                <option value="">-- Pilih nama --</option>
-                {students.map((name) => (
-                  <option key={name} value={name}>{name}</option>
+                onChange={(e) => {
+                  setSelectedName(e.target.value);
+                  setError(null);
+                }}
+                placeholder="Ketik nama siswa"
+                autoComplete="off"
+                className="w-full rounded-xl bg-secondary border-2 border-border pl-10 pr-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
+              />
+              <datalist id="student-name-suggestions">
+                {nameSuggestions.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
                 ))}
-              </select>
+              </datalist>
             </div>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Rekomendasi nama muncul saat siswa mulai mengetik.
+            </p>
           </div>
 
           <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Mata Pelajaran</label>
+            <label htmlFor="student-subject" className="text-xs font-medium text-muted-foreground mb-1.5 block">
+              Mata Pelajaran
+            </label>
             <div className="relative">
               <BookOpen className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <select
+              <input
+                id="student-subject"
+                list="subject-suggestions"
                 value={selectedSubject}
-                onChange={(e) => { setSelectedSubject(e.target.value); setError(null); }}
-                className="w-full rounded-xl bg-secondary border-2 border-border pl-10 pr-4 py-3 text-sm text-foreground focus:outline-none focus:border-primary transition-colors appearance-none"
-              >
-                <option value="">-- Pilih mata pelajaran --</option>
-                {subjects.map((sub) => (
-                  <option key={sub} value={sub}>{sub}</option>
+                onChange={(e) => {
+                  setSelectedSubject(e.target.value);
+                  setError(null);
+                }}
+                placeholder="Ketik mata pelajaran"
+                autoComplete="off"
+                className="w-full rounded-xl bg-secondary border-2 border-border pl-10 pr-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
+              />
+              <datalist id="subject-suggestions">
+                {subjectSuggestions.map((sub) => (
+                  <option key={sub} value={sub}>
+                    {sub}
+                  </option>
                 ))}
-              </select>
+              </datalist>
             </div>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Nama dan mata pelajaran admin tidak ditampilkan langsung di daftar.
+            </p>
           </div>
 
           {error && <p className="text-destructive text-xs">{error}</p>}
 
           <button
             type="submit"
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-primary text-primary-foreground font-semibold text-sm"
+            disabled={submitting}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-primary text-primary-foreground font-semibold text-sm disabled:opacity-60"
           >
-            Mulai Ujian
+            {submitting ? "Memeriksa data..." : "Mulai Ujian"}
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
 
         <p className="text-muted-foreground text-xs text-center mt-6">
-          Jangan tinggalkan halaman saat ujian berlangsung
+          Jangan tinggalkan halaman saat ujian berlangsung.
         </p>
       </div>
     </div>

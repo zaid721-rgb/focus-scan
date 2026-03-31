@@ -55,11 +55,7 @@ const AdminPanel = ({ onLogout }: AdminPanelProps) => {
 
   const handleDeleteAllExams = async () => {
     if (!confirm("Hapus semua data ujian?")) return;
-    // Delete all exams by fetching IDs first
-    const ids = exams.map(e => e.id);
-    for (const id of ids) {
-      await supabase.from("exams").delete().eq("id", id);
-    }
+    await supabase.from("exams").delete().not("id", "is", null);
     fetchData();
   };
 
@@ -81,8 +77,17 @@ const AdminPanel = ({ onLogout }: AdminPanelProps) => {
       }
     }
 
-    if (rows.length > 0) {
-      await supabase.from("exams").insert(rows);
+    const uniqueRows = Array.from(
+      new Map(
+        rows.map((row) => [
+          `${row.student_name.toLowerCase()}::${row.subject.toLowerCase()}::${row.exam_url}`,
+          row,
+        ]),
+      ).values(),
+    );
+
+    if (uniqueRows.length > 0) {
+      await supabase.from("exams").insert(uniqueRows);
     }
 
     setBulkText("");
