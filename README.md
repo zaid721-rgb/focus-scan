@@ -16,7 +16,7 @@ Aplikasi monitoring ujian berbasis `React + Vite + Supabase`.
 2. Isi hanya:
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_PUBLISHABLE_KEY`
-   - `VITE_PUBLIC_BASE_PATH` (contoh: `/focus-scan/` untuk GitHub Pages)
+   - `VITE_PUBLIC_BASE_PATH` (opsional: `/focus-scan/` untuk GitHub Pages, `/` untuk Vercel)
 3. **Jangan pernah** menaruh `service_role key` di frontend.
 4. File `.env` sudah ditambahkan ke `.gitignore` agar tidak ikut ter-commit.
 

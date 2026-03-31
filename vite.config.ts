@@ -5,7 +5,9 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
-  const productionBasePath = process.env.VITE_PUBLIC_BASE_PATH || "/focus-scan/";
+  const isGithubActions = process.env.GITHUB_ACTIONS === "true";
+  const productionBasePath =
+    process.env.VITE_PUBLIC_BASE_PATH || (isGithubActions ? "/focus-scan/" : "/");
 
   return {
     base: mode === "production" ? productionBasePath : "/",
