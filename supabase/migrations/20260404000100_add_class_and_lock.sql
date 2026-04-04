@@ -20,3 +20,16 @@ create index if not exists exam_sessions_device_idx on public.exam_sessions (dev
 -- Policy updates
 drop policy if exists "Anyone can update exams" on public.exams;
 create policy "Anyone can update exams" on public.exams for update to public using (true);
+
+-- Policies for exam_sessions (no auth required for this app)
+drop policy if exists "Anyone can select exam_sessions" on public.exam_sessions;
+create policy "Anyone can select exam_sessions" on public.exam_sessions for select to public using (true);
+
+drop policy if exists "Anyone can insert exam_sessions" on public.exam_sessions;
+create policy "Anyone can insert exam_sessions" on public.exam_sessions for insert to public with check (true);
+
+drop policy if exists "Anyone can update exam_sessions" on public.exam_sessions;
+create policy "Anyone can update exam_sessions" on public.exam_sessions for update to public using (true);
+
+drop policy if exists "Anyone can delete exam_sessions" on public.exam_sessions;
+create policy "Anyone can delete exam_sessions" on public.exam_sessions for delete to public using (true);

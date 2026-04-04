@@ -1,158 +1,195 @@
-export interface ExamRow {
-  id: string;
-  student_name: string;
-  subject: string;
-  exam_url: string;
-  class: string;
-  locked: boolean;
-  unlocks_at: string | null;
-  created_at: string;
-}
+import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 
-export interface SessionRow {
-  id: string;
-  student_name: string;
-  subject: string;
-  exam_url: string;
-  class: string;
-  started_at: string;
-  violation_count: number;
-  blocked: boolean;
-  device_id: string;
-  is_locked_at_start: boolean;
-  is_active: boolean;
-}
+export type ExamRow = Database["public"]["Tables"]["exams"]["Row"];
+export type SessionRow = Database["public"]["Tables"]["exam_sessions"]["Row"];
+export type ExamInsert = Database["public"]["Tables"]["exams"]["Insert"];
+export type SessionInsert = Database["public"]["Tables"]["exam_sessions"]["Insert"];
+export type ExamUpdate = Database["public"]["Tables"]["exams"]["Update"];
+export type SessionUpdate = Database["public"]["Tables"]["exam_sessions"]["Update"];
 
-const EXAMS_KEY = "lovable_exams";
-const SESSIONS_KEY = "lovable_sessions";
-
-const parseStorage = <T>(key: string, fallback: T): T => {
-  if (typeof window === "undefined") return fallback;
-  const raw = localStorage.getItem(key);
-  if (!raw) return fallback;
-  try {
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
-};
-
-const saveStorage = <T>(key: string, data: T) => {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(key, JSON.stringify(data));
-};
-
-const generateId = () => `id_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-
-const createExamRow = (row: Partial<ExamRow>) => ({
-  id: row.id || generateId(),
-  student_name: row.student_name?.trim() || "",
-  subject: row.subject?.trim() || "",
-  exam_url: row.exam_url?.trim() || "",
-  class: row.class?.trim() || "",
-  locked: row.locked ?? false,
-  unlocks_at: row.unlocks_at ?? null,
-  created_at: row.created_at || new Date().toISOString(),
-});
-
-const createSessionRow = (row: Partial<SessionRow>) => ({
-  id: row.id || generateId(),
-  student_name: row.student_name?.trim() || "",
-  subject: row.subject?.trim() || "",
-  exam_url: row.exam_url?.trim() || "",
-  class: row.class?.trim() || "",
-  started_at: row.started_at || new Date().toISOString(),
-  violation_count: row.violation_count ?? 0,
-  blocked: row.blocked ?? false,
-  device_id: row.device_id || "",
-  is_locked_at_start: row.is_locked_at_start ?? false,
-  is_active: row.is_active ?? true,
-});
+const createdAt = () => new Date().toISOString();
 
 export const db = {
   getAllExams: async (): Promise<ExamRow[]> => {
-    const exams = parseStorage<ExamRow[]>(EXAMS_KEY, []);
-    return exams.slice().sort((a, b) => b.created_at.localeCompare(a.created_at));
+    const { data, error } = await supabase
+      .from("exams")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("getAllExams error:", error);
+      return [];
+    }
+
+    return data || [];
   },
 
   getAllSessions: async (): Promise<SessionRow[]> => {
-    const sessions = parseStorage<SessionRow[]>(SESSIONS_KEY, []);
-    return sessions.slice().sort((a, b) => b.started_at.localeCompare(a.started_at));
+    const { data, error } = await supabase
+      .from("exam_sessions")
+      .select("*")
+      .order("started_at", { ascending: false });
+
+    if (error) {
+      console.error("getAllSessions error:", error);
+      return [];
+    }
+
+    return data || [];
   },
 
   insertExams: async (rows: Partial<ExamRow>[]): Promise<ExamRow[]> => {
-    const exams = parseStorage<ExamRow[]>(EXAMS_KEY, []);
-    const newRows = rows.map(createExamRow);
-    saveStorage(EXAMS_KEY, [...exams, ...newRows]);
-    return newRows;
+    const payload = rows.map((row) => ({
+      ...row,
+      created_at: row.created_at || createdAt(),
+    })) as ExamInsert[];
+
+    const { data, error } = await supabase.from("exams").insert(payload).select("*");
+
+    if (error) {
+      console.error("insertExams error:", error);
+      return [];
+    }
+
+    return data || [];
   },
 
   deleteExam: async (id: string): Promise<void> => {
-    const exams = parseStorage<ExamRow[]>(EXAMS_KEY, []);
-    saveStorage(EXAMS_KEY, exams.filter((exam) => exam.id !== id));
+    const { error } = await supabase.from("exams").delete().eq("id", id);
+    if (error) {
+      console.error("deleteExam error:", error);
+    }
   },
 
   deleteAllExams: async (): Promise<void> => {
-    saveStorage(EXAMS_KEY, []);
+    const { error } = await supabase.from("exams").delete();
+    if (error) {
+      console.error("deleteAllExams error:", error);
+    }
   },
 
-  updateExam: async (id: string, updates: Partial<ExamRow>): Promise<ExamRow | null> => {
-    const exams = parseStorage<ExamRow[]>(EXAMS_KEY, []);
-    const updated = exams.map((exam) => (exam.id === id ? { ...exam, ...updates } : exam));
-    saveStorage(EXAMS_KEY, updated);
-    return updated.find((exam) => exam.id === id) || null;
+  updateExam: async (id: string, updates: Partial<ExamUpdate>): Promise<ExamRow | null> => {
+    const { data, error } = await supabase
+      .from("exams")
+      .update(updates)
+      .eq("id", id)
+      .select("*")
+      .maybeSingle();
+
+    if (error) {
+      console.error("updateExam error:", error);
+      return null;
+    }
+
+    return data;
   },
 
-  getExamByStudentSubjectClass: async (student_name: string, subject: string, studentClass: string): Promise<ExamRow | null> => {
-    const exams = parseStorage<ExamRow[]>(EXAMS_KEY, []);
-    return (
-      exams.find(
-        (exam) =>
-          exam.student_name.toLowerCase() === student_name.toLowerCase() &&
-          exam.subject.toLowerCase() === subject.toLowerCase() &&
-          exam.class.toLowerCase() === studentClass.toLowerCase(),
-      ) || null
-    );
+  getExamByStudentSubjectClass: async (
+    student_name: string,
+    subject: string,
+    studentClass: string,
+  ): Promise<ExamRow | null> => {
+    const { data, error } = await supabase
+      .from("exams")
+      .select("*")
+      .eq("student_name", student_name)
+      .eq("subject", subject)
+      .eq("class", studentClass)
+      .maybeSingle();
+
+    if (error) {
+      console.error("getExamByStudentSubjectClass error:", error);
+      return null;
+    }
+
+    return data;
   },
 
-  insertSession: async (row: Partial<SessionRow>): Promise<SessionRow> => {
-    const sessions = parseStorage<SessionRow[]>(SESSIONS_KEY, []);
-    const newRow = createSessionRow(row);
-    saveStorage(SESSIONS_KEY, [...sessions, newRow]);
-    return newRow;
+  insertSession: async (row: Partial<SessionInsert>): Promise<SessionRow | null> => {
+    const payload = {
+      ...row,
+      started_at: row.started_at || createdAt(),
+    } as SessionInsert;
+
+    const { data, error } = await supabase.from("exam_sessions").insert(payload).select("*").maybeSingle();
+
+    if (error) {
+      console.error("insertSession error:", error);
+      return null;
+    }
+
+    return data;
   },
 
-  updateSession: async (id: string, updates: Partial<SessionRow>): Promise<SessionRow | null> => {
-    const sessions = parseStorage<SessionRow[]>(SESSIONS_KEY, []);
-    const updated = sessions.map((session) => (session.id === id ? { ...session, ...updates } : session));
-    saveStorage(SESSIONS_KEY, updated);
-    return updated.find((session) => session.id === id) || null;
+  updateSession: async (id: string, updates: Partial<SessionUpdate>): Promise<SessionRow | null> => {
+    const { data, error } = await supabase
+      .from("exam_sessions")
+      .update(updates)
+      .eq("id", id)
+      .select("*")
+      .maybeSingle();
+
+    if (error) {
+      console.error("updateSession error:", error);
+      return null;
+    }
+
+    return data;
   },
 
   deleteSession: async (id: string): Promise<void> => {
-    const sessions = parseStorage<SessionRow[]>(SESSIONS_KEY, []);
-    saveStorage(SESSIONS_KEY, sessions.filter((session) => session.id !== id));
+    const { error } = await supabase.from("exam_sessions").delete().eq("id", id);
+    if (error) {
+      console.error("deleteSession error:", error);
+    }
   },
 
   getSessionById: async (id: string): Promise<SessionRow | null> => {
-    const sessions = parseStorage<SessionRow[]>(SESSIONS_KEY, []);
-    return sessions.find((session) => session.id === id) || null;
+    const { data, error } = await supabase.from("exam_sessions").select("*").eq("id", id).maybeSingle();
+
+    if (error) {
+      console.error("getSessionById error:", error);
+      return null;
+    }
+
+    return data;
   },
 
-  getSessionByStudentSubjectClass: async (student_name: string, subject: string, studentClass: string): Promise<SessionRow | null> => {
-    const sessions = parseStorage<SessionRow[]>(SESSIONS_KEY, []);
-    return (
-      sessions.find(
-        (session) =>
-          session.student_name.toLowerCase() === student_name.toLowerCase() &&
-          session.subject.toLowerCase() === subject.toLowerCase() &&
-          session.class.toLowerCase() === studentClass.toLowerCase(),
-      ) || null
-    );
+  getSessionByStudentSubjectClass: async (
+    student_name: string,
+    subject: string,
+    studentClass: string,
+  ): Promise<SessionRow | null> => {
+    const { data, error } = await supabase
+      .from("exam_sessions")
+      .select("*")
+      .eq("student_name", student_name)
+      .eq("subject", subject)
+      .eq("class", studentClass)
+      .maybeSingle();
+
+    if (error) {
+      console.error("getSessionByStudentSubjectClass error:", error);
+      return null;
+    }
+
+    return data;
   },
 
   getActiveSessionByStudentName: async (student_name: string): Promise<SessionRow | null> => {
-    const sessions = parseStorage<SessionRow[]>(SESSIONS_KEY, []);
-    return sessions.find((session) => session.student_name.toLowerCase() === student_name.toLowerCase() && session.is_active) || null;
+    const { data, error } = await supabase
+      .from("exam_sessions")
+      .select("*")
+      .eq("student_name", student_name)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (error) {
+      console.error("getActiveSessionByStudentName error:", error);
+      return null;
+    }
+
+    return data;
   },
 };

@@ -28,6 +28,18 @@ const notifyTelegram = async (
       blocked,
       student_class: studentClass,
     });
+
+    await supabase.functions.invoke("notify-violation", {
+      body: {
+        type,
+        user_name: studentName,
+        subject,
+        form_url: examUrl,
+        violation_count: violationCount,
+        blocked,
+        student_class: studentClass,
+      },
+    });
   } catch (e) {
     console.error("Telegram notification failed:", e);
   }
