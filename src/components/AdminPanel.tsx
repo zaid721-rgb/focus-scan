@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/integrations/db";
 import { Shield, Trash2, RefreshCw, LogOut, Plus, Download, X, Upload } from "lucide-react";
 
 interface AdminPanelProps {
@@ -48,12 +48,10 @@ const AdminPanel = ({ onLogout }: AdminPanelProps) => {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const [examsRes, sessionsRes] = await Promise.all([
-      supabase.from("exams").select("*").order("created_at", { ascending: false }),
-      supabase.from("exam_sessions").select("*").order("started_at", { ascending: false }),
-    ]);
-    setExams((examsRes.data as ExamRow[]) || []);
-    setSessions((sessionsRes.data as SessionRow[]) || []);
+    const exams = await db.getAllExams();
+    const sessions = await db.getAllSessions();
+    setExams(exams);
+    setSessions(sessions);
     setLoading(false);
   }, []);
 
@@ -62,13 +60,13 @@ const AdminPanel = ({ onLogout }: AdminPanelProps) => {
   }, [fetchData]);
 
   const handleDeleteExam = async (id: string) => {
-    await supabase.from("exams").delete().eq("id", id);
+    await db.deleteExam(id);
     fetchData();
   };
 
   const handleDeleteAllExams = async () => {
     if (!confirm("Hapus semua data ujian?")) return;
-    await supabase.from("exams").delete().not("id", "is", null);
+    await db.deleteAllExams();
     fetchData();
   };
 
@@ -101,7 +99,7 @@ const AdminPanel = ({ onLogout }: AdminPanelProps) => {
     );
 
     if (uniqueRows.length > 0) {
-      await supabase.from("exams").insert(uniqueRows);
+      await db.insertExams(uniqueRows);
     }
 
     setBulkText("");
@@ -128,30 +126,30 @@ const AdminPanel = ({ onLogout }: AdminPanelProps) => {
   };
 
   const handleResetSession = async (id: string) => {
-    await supabase.from("exam_sessions").update({ violation_count: 0, blocked: false }).eq("id", id);
+    await db.updateSession(id, { violation_count: 0, blocked: false });
     fetchData();
   };
 
   const handleEditUrl = async (id: string, newUrl: string) => {
-    await supabase.from("exams").update({ exam_url: newUrl }).eq("id", id);
+    await db.updateExam(id, { exam_url: newUrl });
     setEditingId(null);
     fetchData();
   };
 
   const handleEditName = async (id: string, newName: string) => {
-    await supabase.from("exams").update({ student_name: newName }).eq("id", id);
+    await db.updateExam(id, { student_name: newName });
     setEditingNameId(null);
     fetchData();
   };
 
   const handleEditSubject = async (id: string, newSubject: string) => {
-    await supabase.from("exams").update({ subject: newSubject }).eq("id", id);
+    await db.updateExam(id, { subject: newSubject });
     setEditingSubjectId(null);
     fetchData();
   };
 
   const handleEditClass = async (id: string, newClass: string) => {
-    await supabase.from("exams").update({ class: newClass }).eq("id", id);
+    await db.updateExam(id, { class: newClass });
     setEditingClassId(null);
     fetchData();
   };
@@ -168,10 +166,7 @@ const AdminPanel = ({ onLogout }: AdminPanelProps) => {
       unlocks_at = null;
     }
 
-    await supabase
-      .from("exams")
-      .update({ locked, unlocks_at })
-      .eq("id", exam.id);
+    await db.updateExam(exam.id, { locked, unlocks_at });
 
     setLockingId(null);
     setLockTime("");
@@ -179,7 +174,7 @@ const AdminPanel = ({ onLogout }: AdminPanelProps) => {
   };
 
   const handleDeleteSession = async (id: string) => {
-    await supabase.from("exam_sessions").delete().eq("id", id);
+    await db.deleteSession(id);
     fetchData();
   };
 

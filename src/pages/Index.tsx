@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
+import { db } from "@/integrations/db";
 import { supabase } from "@/integrations/supabase/client";
 import StudentLogin from "@/components/StudentLogin";
 import FormViewer from "@/components/FormViewer";
@@ -18,16 +19,14 @@ const notifyTelegram = async (
   studentClass?: string
 ) => {
   try {
-    await supabase.functions.invoke("notify-violation", {
-      body: {
-        type,
-        user_name: studentName,
-        subject,
-        form_url: examUrl,
-        violation_count: violationCount,
-        blocked,
-        student_class: studentClass,
-      },
+    console.debug("notifyTelegram", {
+      type,
+      user_name: studentName,
+      subject,
+      form_url: examUrl,
+      violation_count: violationCount,
+      blocked,
+      student_class: studentClass,
     });
   } catch (e) {
     console.error("Telegram notification failed:", e);
@@ -56,11 +55,7 @@ const Index = () => {
       // User reloaded during exam — count as violation
       setLoading(true);
       (async () => {
-        const { data } = await supabase
-          .from("exam_sessions")
-          .select("violation_count, blocked")
-          .eq("id", storedSession)
-          .maybeSingle();
+        const data = await db.getSessionById(storedSession);
 
         if (data) {
           const newCount = data.violation_count + 1;
@@ -109,13 +104,7 @@ const Index = () => {
     examUrlRef.current = url;
 
     // Check existing session for this student+subject+class
-    const { data: existing } = await supabase
-      .from("exam_sessions")
-      .select("id, violation_count, blocked")
-      .eq("student_name", name)
-      .eq("subject", sub)
-      .eq("class", studentClass || "")
-      .maybeSingle();
+    const existing = await db.getSessionByStudentSubjectClass(name, sub, studentClass || "");
 
     if (existing) {
       if (existing.blocked) {
@@ -128,19 +117,15 @@ const Index = () => {
       setSessionId(existing.id);
     } else {
       // Create new session with device tracking
-      const { data: newSession } = await supabase
-        .from("exam_sessions")
-        .insert({ 
-          student_name: name, 
-          subject: sub, 
-          exam_url: url,
-          class: studentClass || "",
-          is_locked_at_start: false,
-          device_id: deviceId || "",
-          is_active: true
-        })
-        .select("id")
-        .single();
+      const newSession = await db.insertSession({ 
+        student_name: name, 
+        subject: sub, 
+        exam_url: url,
+        class: studentClass || "",
+        is_locked_at_start: false,
+        device_id: deviceId || "",
+        is_active: true,
+      });
 
       if (newSession) {
         setSessionId(newSession.id);
@@ -173,10 +158,7 @@ const Index = () => {
     const isBlocked = newCount >= MAX_VIOLATIONS;
     setViolationCount(newCount);
 
-    await supabase
-      .from("exam_sessions")
-      .update({ violation_count: newCount, blocked: isBlocked, is_active: false })
-      .eq("id", sessionId);
+    await db.updateSession(sessionId, { violation_count: newCount, blocked: isBlocked, is_active: false });
 
     await notifyTelegram("violation", studentName, subject, examUrlRef.current, newCount, isBlocked, studentClass);
 
@@ -193,13 +175,10 @@ const Index = () => {
     }
   }, [sessionId, violationCount, studentName, subject, studentClass]);
 
-  const handleLogout = useCallback(() => {
+  const handleLogout = useCallback(async () => {
     // Mark session as inactive if it exists
     if (sessionId) {
-      await supabase
-        .from("exam_sessions")
-        .update({ is_active: false })
-        .eq("id", sessionId);
+      await db.updateSession(sessionId, { is_active: false });
     }
 
     localStorage.removeItem("exam_viewing_url");

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/integrations/db";
 import { BookOpen, ArrowRight, User } from "lucide-react";
 import { toast } from "sonner";
 
@@ -40,18 +40,9 @@ const StudentLogin = ({ onStart }: StudentLoginProps) => {
 
     const fetchData = async () => {
       setLoading(true);
-      const { data, error: fetchError } = await supabase
-        .from("exams")
-        .select("student_name, subject");
+      const data = await db.getAllExams();
 
       if (!isMounted) return;
-
-      if (fetchError) {
-        setError("Gagal memuat data login dari database.");
-        toast.error("Data login dari Supabase gagal dimuat.");
-        setLoading(false);
-        return;
-      }
 
       const visibleOptions = (data ?? []).filter((row) => {
         return !(
@@ -161,14 +152,9 @@ const StudentLogin = ({ onStart }: StudentLoginProps) => {
     setSubmitting(true);
 
     // Check if student already active on another device
-    const { data: activeSessions } = await supabase
-      .from("exam_sessions")
-      .select("device_id, id")
-      .eq("student_name", matchedOption.student_name)
-      .eq("is_active", true)
-      .maybeSingle();
+    const activeSession = await db.getActiveSessionByStudentName(matchedOption.student_name);
 
-    if (activeSessions && activeSessions.device_id !== deviceId) {
+    if (activeSession && activeSession.device_id !== deviceId) {
       setSubmitting(false);
       const message = "Ujian ini sedang dibuka di device lain. Hanya 1 device yang bisa mengakses ujian per waktu.";
       setError(message);
@@ -176,17 +162,11 @@ const StudentLogin = ({ onStart }: StudentLoginProps) => {
       return;
     }
 
-    const { data, error: examError } = await supabase
-      .from("exams")
-      .select("exam_url, locked, unlocks_at")
-      .eq("student_name", matchedOption.student_name)
-      .eq("subject", matchedOption.subject)
-      .eq("class", typedClass)
-      .maybeSingle();
+    const data = await db.getExamByStudentSubjectClass(matchedOption.student_name, matchedOption.subject, typedClass);
 
     setSubmitting(false);
 
-    if (examError || !data?.exam_url) {
+    if (!data?.exam_url) {
       const message = "Kombinasi nama, mata pelajaran, dan kelas tidak valid. Silakan cek lagi.";
       setError(message);
       toast.error(message);
