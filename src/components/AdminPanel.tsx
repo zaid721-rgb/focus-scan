@@ -37,6 +37,12 @@ const AdminPanel = ({ onLogout }: AdminPanelProps) => {
   const [addingBulk, setAddingBulk] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editUrl, setEditUrl] = useState("");
+  const [editingNameId, setEditingNameId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editingSubjectId, setEditingSubjectId] = useState<string | null>(null);
+  const [editSubject, setEditSubject] = useState("");
+  const [editingClassId, setEditingClassId] = useState<string | null>(null);
+  const [editClass, setEditClass] = useState("");
   const [lockingId, setLockingId] = useState<string | null>(null);
   const [lockTime, setLockTime] = useState("");
 
@@ -129,6 +135,24 @@ const AdminPanel = ({ onLogout }: AdminPanelProps) => {
   const handleEditUrl = async (id: string, newUrl: string) => {
     await supabase.from("exams").update({ exam_url: newUrl }).eq("id", id);
     setEditingId(null);
+    fetchData();
+  };
+
+  const handleEditName = async (id: string, newName: string) => {
+    await supabase.from("exams").update({ student_name: newName }).eq("id", id);
+    setEditingNameId(null);
+    fetchData();
+  };
+
+  const handleEditSubject = async (id: string, newSubject: string) => {
+    await supabase.from("exams").update({ subject: newSubject }).eq("id", id);
+    setEditingSubjectId(null);
+    fetchData();
+  };
+
+  const handleEditClass = async (id: string, newClass: string) => {
+    await supabase.from("exams").update({ class: newClass }).eq("id", id);
+    setEditingClassId(null);
     fetchData();
   };
 
@@ -268,9 +292,19 @@ const AdminPanel = ({ onLogout }: AdminPanelProps) => {
                       <div key={row.id} className="px-4 py-4 space-y-3">
                         <div className="flex items-start justify-between">
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <p className="text-sm font-medium text-foreground">{row.student_name}</p>
-                              <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">{row.class}</span>
+                      <div className="flex items-center gap-2">
+                              {editingNameId === row.id ? (
+                                <input
+                                  type="text"
+                                  value={editName}
+                                  onChange={(e) => setEditName(e.target.value)}
+                                  className="px-2 py-1 rounded text-sm border border-border bg-secondary"
+                                  placeholder="Nama siswa"
+                                />
+                              ) : (
+                                <p className="text-sm font-medium text-foreground">{row.student_name}</p>
+                              )}
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">{row.class || "-"}</span>
                               {row.locked && <span className="text-xs px-2 py-0.5 rounded-full bg-destructive/10 text-destructive">🔒 TERKUNCI</span>}
                             </div>
                             {editingId === row.id ? (
@@ -284,6 +318,28 @@ const AdminPanel = ({ onLogout }: AdminPanelProps) => {
                             ) : (
                               <p className="text-xs font-mono text-muted-foreground truncate mt-1">{row.exam_url}</p>
                             )}
+                            {editingSubjectId === row.id ? (
+                              <input
+                                type="text"
+                                value={editSubject}
+                                onChange={(e) => setEditSubject(e.target.value)}
+                                className="w-full mt-1 px-2 py-1 rounded text-xs border border-border bg-secondary"
+                                placeholder="Mata pelajaran"
+                              />
+                            ) : (
+                              <p className="text-xs text-muted-foreground mt-1">📚 {row.subject}</p>
+                            )}
+                            {editingClassId === row.id ? (
+                              <input
+                                type="text"
+                                value={editClass}
+                                onChange={(e) => setEditClass(e.target.value)}
+                                className="w-full mt-1 px-2 py-1 rounded text-xs border border-border bg-secondary"
+                                placeholder="Kelas"
+                              />
+                            ) : (
+                              <p className="text-xs text-muted-foreground mt-1">👥 Kelas: {row.class || "-"}</p>
+                            )}
                             {row.locked && row.unlocks_at && (
                               <p className="text-xs text-muted-foreground mt-1">
                                 Dibuka pada: {new Date(row.unlocks_at).toLocaleString("id-ID")}
@@ -293,6 +349,87 @@ const AdminPanel = ({ onLogout }: AdminPanelProps) => {
                         </div>
 
                         <div className="flex gap-2 flex-wrap">
+                          {editingNameId === row.id ? (
+                            <>
+                              <button
+                                onClick={() => handleEditName(row.id, editName)}
+                                className="text-xs px-3 py-1.5 rounded-lg bg-primary text-primary-foreground font-medium"
+                              >
+                                Simpan Nama
+                              </button>
+                              <button
+                                onClick={() => setEditingNameId(null)}
+                                className="text-xs px-3 py-1.5 rounded-lg bg-secondary text-muted-foreground"
+                              >
+                                Batal
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                setEditingNameId(row.id);
+                                setEditName(row.student_name);
+                              }}
+                              className="text-xs px-3 py-1.5 rounded-lg bg-secondary text-muted-foreground hover:text-foreground"
+                            >
+                              ✏️ Edit Nama
+                            </button>
+                          )}
+
+                          {editingSubjectId === row.id ? (
+                            <>
+                              <button
+                                onClick={() => handleEditSubject(row.id, editSubject)}
+                                className="text-xs px-3 py-1.5 rounded-lg bg-primary text-primary-foreground font-medium"
+                              >
+                                Simpan Mapel
+                              </button>
+                              <button
+                                onClick={() => setEditingSubjectId(null)}
+                                className="text-xs px-3 py-1.5 rounded-lg bg-secondary text-muted-foreground"
+                              >
+                                Batal
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                setEditingSubjectId(row.id);
+                                setEditSubject(row.subject);
+                              }}
+                              className="text-xs px-3 py-1.5 rounded-lg bg-secondary text-muted-foreground hover:text-foreground"
+                            >
+                              ✏️ Edit Mapel
+                            </button>
+                          )}
+
+                          {editingClassId === row.id ? (
+                            <>
+                              <button
+                                onClick={() => handleEditClass(row.id, editClass)}
+                                className="text-xs px-3 py-1.5 rounded-lg bg-primary text-primary-foreground font-medium"
+                              >
+                                Simpan Kelas
+                              </button>
+                              <button
+                                onClick={() => setEditingClassId(null)}
+                                className="text-xs px-3 py-1.5 rounded-lg bg-secondary text-muted-foreground"
+                              >
+                                Batal
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                setEditingClassId(row.id);
+                                setEditClass(row.class || "");
+                              }}
+                              className="text-xs px-3 py-1.5 rounded-lg bg-secondary text-muted-foreground hover:text-foreground"
+                            >
+                              ✏️ Edit Kelas
+                            </button>
+                          )}
+
                           {editingId === row.id ? (
                             <>
                               <button
