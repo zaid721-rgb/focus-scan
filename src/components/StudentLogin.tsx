@@ -4,7 +4,7 @@ import { BookOpen, ArrowRight, User } from "lucide-react";
 import { toast } from "sonner";
 
 interface StudentLoginProps {
-  onStart: (studentName: string, subject: string, examUrl: string) => void;
+  onStart: (studentName: string, subject: string, examUrl: string, studentClass?: string) => void;
 }
 
 type ExamOption = {
@@ -21,6 +21,7 @@ const StudentLogin = ({ onStart }: StudentLoginProps) => {
   const [examOptions, setExamOptions] = useState<ExamOption[]>([]);
   const [selectedName, setSelectedName] = useState("");
   const [selectedSubject, setSelectedSubject] = useState("");
+  const [selectedClass, setSelectedClass] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -102,6 +103,7 @@ const StudentLogin = ({ onStart }: StudentLoginProps) => {
 
     const typedName = selectedName.trim();
     const typedSubject = selectedSubject.trim();
+    const typedClass = selectedClass.trim();
 
     if (!typedName) {
       const message = "Nama siswa wajib diisi.";
@@ -112,6 +114,13 @@ const StudentLogin = ({ onStart }: StudentLoginProps) => {
 
     if (!typedSubject) {
       const message = "Mata pelajaran wajib diisi.";
+      setError(message);
+      toast.error(message);
+      return;
+    }
+
+    if (!typedClass) {
+      const message = "Kelas wajib diisi.";
       setError(message);
       toast.error(message);
       return;
@@ -144,22 +153,32 @@ const StudentLogin = ({ onStart }: StudentLoginProps) => {
 
     const { data, error: examError } = await supabase
       .from("exams")
-      .select("exam_url")
+      .select("exam_url, locked, unlocks_at")
       .eq("student_name", matchedOption.student_name)
       .eq("subject", matchedOption.subject)
+      .eq("class", typedClass)
       .maybeSingle();
 
     setSubmitting(false);
 
     if (examError || !data?.exam_url) {
-      const message = "Kombinasi nama dan mata pelajaran tidak valid. Silakan cek lagi.";
+      const message = "Kombinasi nama, mata pelajaran, dan kelas tidak valid. Silakan cek lagi.";
+      setError(message);
+      toast.error(message);
+      return;
+    }
+
+    // Check if locked
+    if (data.locked) {
+      const unlockTime = data.unlocks_at ? new Date(data.unlocks_at).toLocaleString("id-ID") : "belum ditentukan";
+      const message = `Ujian ini masih dikunci. Akan dibuka pada: ${unlockTime}`;
       setError(message);
       toast.error(message);
       return;
     }
 
     setError(null);
-    onStart(matchedOption.student_name, matchedOption.subject, data.exam_url);
+    onStart(matchedOption.student_name, matchedOption.subject, data.exam_url, typedClass);
   };
 
   if (loading) {
@@ -244,6 +263,27 @@ const StudentLogin = ({ onStart }: StudentLoginProps) => {
             <p className="text-[11px] text-muted-foreground mt-1">
               Nama dan mata pelajaran admin tidak ditampilkan langsung di daftar.
             </p>
+          </div>
+
+          <div>
+            <label htmlFor="student-class" className="text-xs font-medium text-muted-foreground mb-1.5 block">
+              Kelas
+            </label>
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <input
+                id="student-class"
+                type="text"
+                value={selectedClass}
+                onChange={(e) => {
+                  setSelectedClass(e.target.value);
+                  setError(null);
+                }}
+                placeholder="Ketik kelas Anda (contoh: 9A, 9B)"
+                autoComplete="off"
+                className="w-full rounded-xl bg-secondary border-2 border-border pl-10 pr-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
+              />
+            </div>
           </div>
 
           {error && <p className="text-destructive text-xs">{error}</p>}

@@ -14,7 +14,8 @@ const notifyTelegram = async (
   subject: string,
   examUrl: string,
   violationCount: number,
-  blocked: boolean
+  blocked: boolean,
+  studentClass?: string
 ) => {
   try {
     await supabase.functions.invoke("notify-violation", {
@@ -25,6 +26,7 @@ const notifyTelegram = async (
         form_url: examUrl,
         violation_count: violationCount,
         blocked,
+        student_class: studentClass,
       },
     });
   } catch (e) {
@@ -36,6 +38,7 @@ const Index = () => {
   const [state, setState] = useState<AppState>("login");
   const [studentName, setStudentName] = useState("");
   const [subject, setSubject] = useState("");
+  const [studentClass, setStudentClass] = useState("");
   const [examUrl, setExamUrl] = useState("");
   const [violationCount, setViolationCount] = useState(0);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -92,7 +95,7 @@ const Index = () => {
     }
   }, []);
 
-  const handleStart = useCallback(async (name: string, sub: string, url: string) => {
+  const handleStart = useCallback(async (name: string, sub: string, url: string, studentClass?: string) => {
     if (url === "__ADMIN__") {
       setStudentName(name);
       setState("admin");
@@ -101,15 +104,17 @@ const Index = () => {
 
     setStudentName(name);
     setSubject(sub);
+    setStudentClass(studentClass || "");
     setExamUrl(url);
     examUrlRef.current = url;
 
-    // Check existing session for this student+subject
+    // Check existing session for this student+subject+class
     const { data: existing } = await supabase
       .from("exam_sessions")
       .select("id, violation_count, blocked")
       .eq("student_name", name)
       .eq("subject", sub)
+      .eq("class", studentClass || "")
       .maybeSingle();
 
     if (existing) {
@@ -125,7 +130,13 @@ const Index = () => {
       // Create new session
       const { data: newSession } = await supabase
         .from("exam_sessions")
-        .insert({ student_name: name, subject: sub, exam_url: url })
+        .insert({ 
+          student_name: name, 
+          subject: sub, 
+          exam_url: url,
+          class: studentClass || "",
+          is_locked_at_start: false
+        })
         .select("id")
         .single();
 
@@ -134,13 +145,14 @@ const Index = () => {
       }
 
       // Notify Telegram about exam start
-      await notifyTelegram("exam_start", name, sub, url, 0, false);
+      await notifyTelegram("exam_start", name, sub, url, 0, false, studentClass);
     }
 
     localStorage.setItem("exam_viewing_url", url);
     localStorage.setItem("exam_session_id", sessionId || "");
     localStorage.setItem("exam_student_name", name);
     localStorage.setItem("exam_subject", sub);
+    localStorage.setItem("exam_student_class", studentClass || "");
     setState("viewing");
   }, [sessionId]);
 
@@ -163,7 +175,7 @@ const Index = () => {
       .update({ violation_count: newCount, blocked: isBlocked })
       .eq("id", sessionId);
 
-    await notifyTelegram("violation", studentName, subject, examUrlRef.current, newCount, isBlocked);
+    await notifyTelegram("violation", studentName, subject, examUrlRef.current, newCount, isBlocked, studentClass);
 
     localStorage.removeItem("exam_viewing_url");
 
@@ -174,16 +186,19 @@ const Index = () => {
       localStorage.removeItem("exam_session_id");
       localStorage.removeItem("exam_student_name");
       localStorage.removeItem("exam_subject");
+      localStorage.removeItem("exam_student_class");
     }
-  }, [sessionId, violationCount, studentName, subject]);
+  }, [sessionId, violationCount, studentName, subject, studentClass]);
 
   const handleLogout = useCallback(() => {
     localStorage.removeItem("exam_viewing_url");
     localStorage.removeItem("exam_session_id");
     localStorage.removeItem("exam_student_name");
     localStorage.removeItem("exam_subject");
+    localStorage.removeItem("exam_student_class");
     setStudentName("");
     setSubject("");
+    setStudentClass("");
     setExamUrl("");
     setSessionId(null);
     setViolationCount(0);

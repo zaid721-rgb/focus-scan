@@ -11,6 +11,9 @@ interface ExamRow {
   student_name: string;
   subject: string;
   exam_url: string;
+  class: string;
+  locked: boolean;
+  unlocks_at: string | null;
   created_at: string;
 }
 
@@ -32,6 +35,10 @@ const AdminPanel = ({ onLogout }: AdminPanelProps) => {
   const [showBulkAdd, setShowBulkAdd] = useState(false);
   const [bulkText, setBulkText] = useState("");
   const [addingBulk, setAddingBulk] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editUrl, setEditUrl] = useState("");
+  const [lockingId, setLockingId] = useState<string | null>(null);
+  const [lockTime, setLockTime] = useState("");
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -63,16 +70,17 @@ const AdminPanel = ({ onLogout }: AdminPanelProps) => {
     if (!bulkText.trim()) return;
     setAddingBulk(true);
     const lines = bulkText.trim().split("\n").filter(l => l.trim());
-    const rows: { student_name: string; subject: string; exam_url: string }[] = [];
+    const rows: { student_name: string; subject: string; exam_url: string; class: string }[] = [];
 
     for (const line of lines) {
-      // Format: nama siswa, mata pelajaran, link ujian
+      // Format: nama siswa, mata pelajaran, link ujian, kelas
       const parts = line.split(",").map(p => p.trim());
-      if (parts.length >= 3) {
+      if (parts.length >= 4) {
         rows.push({
           student_name: parts[0],
           subject: parts[1],
           exam_url: parts[2],
+          class: parts[3],
         });
       }
     }
@@ -80,7 +88,7 @@ const AdminPanel = ({ onLogout }: AdminPanelProps) => {
     const uniqueRows = Array.from(
       new Map(
         rows.map((row) => [
-          `${row.student_name.toLowerCase()}::${row.subject.toLowerCase()}::${row.exam_url}`,
+          `${row.student_name.toLowerCase()}::${row.subject.toLowerCase()}::${row.class.toLowerCase()}::${row.exam_url}`,
           row,
         ]),
       ).values(),
@@ -115,6 +123,34 @@ const AdminPanel = ({ onLogout }: AdminPanelProps) => {
 
   const handleResetSession = async (id: string) => {
     await supabase.from("exam_sessions").update({ violation_count: 0, blocked: false }).eq("id", id);
+    fetchData();
+  };
+
+  const handleEditUrl = async (id: string, newUrl: string) => {
+    await supabase.from("exams").update({ exam_url: newUrl }).eq("id", id);
+    setEditingId(null);
+    fetchData();
+  };
+
+  const handleToggleLock = async (exam: ExamRow) => {
+    let locked = exam.locked;
+    let unlocks_at = exam.unlocks_at;
+
+    if (!locked) {
+      locked = true;
+      unlocks_at = lockTime || new Date(Date.now() + 3600000).toISOString();
+    } else {
+      locked = false;
+      unlocks_at = null;
+    }
+
+    await supabase
+      .from("exams")
+      .update({ locked, unlocks_at })
+      .eq("id", exam.id);
+
+    setLockingId(null);
+    setLockTime("");
     fetchData();
   };
 
@@ -197,12 +233,12 @@ const AdminPanel = ({ onLogout }: AdminPanelProps) => {
                   <button onClick={() => setShowBulkAdd(false)} className="text-muted-foreground"><X className="w-4 h-4" /></button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Format per baris: <code className="bg-secondary px-1 rounded">Nama Siswa, Mata Pelajaran, Link Ujian</code>
+                  Format per baris: <code className="bg-secondary px-1 rounded">Nama Siswa, Mata Pelajaran, Link Ujian, Kelas</code>
                 </p>
                 <textarea
                   value={bulkText}
                   onChange={(e) => setBulkText(e.target.value)}
-                  placeholder={`Ahmad Fadli, Matematika, https://docs.google.com/forms/d/xxx\nSiti Nurhaliza, Matematika, https://docs.google.com/forms/d/xxx\nBudi Santoso, IPA, https://drive.google.com/file/d/xxx/view`}
+                  placeholder={`Ahmad Fadli, Matematika, https://docs.google.com/forms/d/xxx, 9A\nSiti Nurhaliza, Matematika, https://docs.google.com/forms/d/yyy, 9B\nBudi Santoso, IPA, https://drive.google.com/file/d/zzz/view, 9A`}
                   className="w-full h-40 rounded-lg bg-secondary border border-border p-3 text-xs font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary resize-none"
                 />
                 <button
@@ -229,18 +265,110 @@ const AdminPanel = ({ onLogout }: AdminPanelProps) => {
                   </div>
                   <div className="divide-y divide-border">
                     {rows.map((row) => (
-                      <div key={row.id} className="px-4 py-3 flex items-center gap-3">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-foreground">{row.student_name}</p>
-                          <p className="text-xs font-mono text-muted-foreground truncate">{row.exam_url}</p>
+                      <div key={row.id} className="px-4 py-4 space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-medium text-foreground">{row.student_name}</p>
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">{row.class}</span>
+                              {row.locked && <span className="text-xs px-2 py-0.5 rounded-full bg-destructive/10 text-destructive">🔒 TERKUNCI</span>}
+                            </div>
+                            {editingId === row.id ? (
+                              <input
+                                type="text"
+                                value={editUrl}
+                                onChange={(e) => setEditUrl(e.target.value)}
+                                className="w-full mt-2 px-2 py-1 rounded text-xs border border-border bg-secondary"
+                                placeholder="URL baru"
+                              />
+                            ) : (
+                              <p className="text-xs font-mono text-muted-foreground truncate mt-1">{row.exam_url}</p>
+                            )}
+                            {row.locked && row.unlocks_at && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Dibuka pada: {new Date(row.unlocks_at).toLocaleString("id-ID")}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                        <button
-                          onClick={() => handleDeleteExam(row.id)}
-                          className="p-2 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
-                          title="Hapus"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+
+                        <div className="flex gap-2 flex-wrap">
+                          {editingId === row.id ? (
+                            <>
+                              <button
+                                onClick={() => handleEditUrl(row.id, editUrl)}
+                                className="text-xs px-3 py-1.5 rounded-lg bg-primary text-primary-foreground font-medium"
+                              >
+                                Simpan
+                              </button>
+                              <button
+                                onClick={() => setEditingId(null)}
+                                className="text-xs px-3 py-1.5 rounded-lg bg-secondary text-muted-foreground"
+                              >
+                                Batal
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                setEditingId(row.id);
+                                setEditUrl(row.exam_url);
+                              }}
+                              className="text-xs px-3 py-1.5 rounded-lg bg-secondary text-muted-foreground hover:text-foreground"
+                            >
+                              ✏️ Edit Link
+                            </button>
+                          )}
+
+                          {lockingId === row.id ? (
+                            <>
+                              <input
+                                type="datetime-local"
+                                value={lockTime}
+                                onChange={(e) => setLockTime(e.target.value)}
+                                className="text-xs px-2 py-1 rounded border border-border bg-secondary"
+                              />
+                              <button
+                                onClick={() => handleToggleLock(row)}
+                                className="text-xs px-3 py-1.5 rounded-lg bg-primary text-primary-foreground font-medium"
+                              >
+                                Kunci
+                              </button>
+                              <button
+                                onClick={() => setLockingId(null)}
+                                className="text-xs px-3 py-1.5 rounded-lg bg-secondary text-muted-foreground"
+                              >
+                                Batal
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                if (row.locked) {
+                                  handleToggleLock(row);
+                                } else {
+                                  setLockingId(row.id);
+                                  setLockTime(new Date(Date.now() + 3600000).toISOString().slice(0, 16));
+                                }
+                              }}
+                              className={`text-xs px-3 py-1.5 rounded-lg font-medium ${
+                                row.locked
+                                  ? "bg-green/10 text-green hover:bg-green/20"
+                                  : "bg-destructive/10 text-destructive hover:bg-destructive/20"
+                              }`}
+                            >
+                              {row.locked ? "🔓 Buka Kunci" : "🔒 Kunci"}
+                            </button>
+                          )}
+
+                          <button
+                            onClick={() => handleDeleteExam(row.id)}
+                            className="text-xs px-3 py-1.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20"
+                            title="Hapus"
+                          >
+                            🗑️ Hapus
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
