@@ -25,6 +25,8 @@ export type Database = {
           violation_count: number
           class: string | null
           is_locked_at_start: boolean
+          device_id: string | null
+          is_active: boolean
         }
         Insert: {
           blocked?: boolean
@@ -36,6 +38,8 @@ export type Database = {
           violation_count?: number
           class?: string | null
           is_locked_at_start?: boolean
+          device_id?: string | null
+          is_active?: boolean
         }
         Update: {
           blocked?: boolean
@@ -47,6 +51,8 @@ export type Database = {
           violation_count?: number
           class?: string | null
           is_locked_at_start?: boolean
+          device_id?: string | null
+          is_active?: boolean
         }
         Relationships: []
       }

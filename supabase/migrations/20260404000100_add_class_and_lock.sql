@@ -7,11 +7,15 @@ alter table public.exams
 -- Add class to exam_sessions for logging
 alter table public.exam_sessions
   add column if not exists class text,
-  add column if not exists is_locked_at_start boolean not null default false;
+  add column if not exists is_locked_at_start boolean not null default false,
+  add column if not exists device_id text,
+  add column if not exists is_active boolean not null default true;
 
--- Index for faster lock/class queries
+-- Index for faster lock/class queries and device session tracking
 create index if not exists exams_locked_idx on public.exams (locked, unlocks_at);
 create index if not exists exams_class_idx on public.exams (class);
+create index if not exists exam_sessions_student_active_idx on public.exam_sessions (student_name, is_active);
+create index if not exists exam_sessions_device_idx on public.exam_sessions (device_id, is_active);
 
 -- Policy updates
 drop policy if exists "Anyone can update exams" on public.exams;

@@ -4,7 +4,7 @@ import { BookOpen, ArrowRight, User } from "lucide-react";
 import { toast } from "sonner";
 
 interface StudentLoginProps {
-  onStart: (studentName: string, subject: string, examUrl: string, studentClass?: string) => void;
+  onStart: (studentName: string, subject: string, examUrl: string, studentClass?: string, deviceId?: string) => void;
 }
 
 type ExamOption = {
@@ -17,7 +17,16 @@ const ADMIN_SUBJECT = "TIK";
 
 const normalizeValue = (value: string) => value.trim().toLowerCase();
 
+const generateDeviceId = () => {
+  const stored = localStorage.getItem("device_id");
+  if (stored) return stored;
+  const newId = `device_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  localStorage.setItem("device_id", newId);
+  return newId;
+};
+
 const StudentLogin = ({ onStart }: StudentLoginProps) => {
+  const [deviceId] = useState(generateDeviceId());
   const [examOptions, setExamOptions] = useState<ExamOption[]>([]);
   const [selectedName, setSelectedName] = useState("");
   const [selectedSubject, setSelectedSubject] = useState("");
@@ -151,6 +160,22 @@ const StudentLogin = ({ onStart }: StudentLoginProps) => {
 
     setSubmitting(true);
 
+    // Check if student already active on another device
+    const { data: activeSessions } = await supabase
+      .from("exam_sessions")
+      .select("device_id, id")
+      .eq("student_name", matchedOption.student_name)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (activeSessions && activeSessions.device_id !== deviceId) {
+      setSubmitting(false);
+      const message = "Ujian ini sedang dibuka di device lain. Hanya 1 device yang bisa mengakses ujian per waktu.";
+      setError(message);
+      toast.error(message);
+      return;
+    }
+
     const { data, error: examError } = await supabase
       .from("exams")
       .select("exam_url, locked, unlocks_at")
@@ -178,7 +203,7 @@ const StudentLogin = ({ onStart }: StudentLoginProps) => {
     }
 
     setError(null);
-    onStart(matchedOption.student_name, matchedOption.subject, data.exam_url, typedClass);
+    onStart(matchedOption.student_name, matchedOption.subject, data.exam_url, typedClass, deviceId);
   };
 
   if (loading) {

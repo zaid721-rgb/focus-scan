@@ -95,7 +95,7 @@ const Index = () => {
     }
   }, []);
 
-  const handleStart = useCallback(async (name: string, sub: string, url: string, studentClass?: string) => {
+  const handleStart = useCallback(async (name: string, sub: string, url: string, studentClass?: string, deviceId?: string) => {
     if (url === "__ADMIN__") {
       setStudentName(name);
       setState("admin");
@@ -127,7 +127,7 @@ const Index = () => {
       setViolationCount(existing.violation_count);
       setSessionId(existing.id);
     } else {
-      // Create new session
+      // Create new session with device tracking
       const { data: newSession } = await supabase
         .from("exam_sessions")
         .insert({ 
@@ -135,7 +135,9 @@ const Index = () => {
           subject: sub, 
           exam_url: url,
           class: studentClass || "",
-          is_locked_at_start: false
+          is_locked_at_start: false,
+          device_id: deviceId || "",
+          is_active: true
         })
         .select("id")
         .single();
@@ -153,6 +155,7 @@ const Index = () => {
     localStorage.setItem("exam_student_name", name);
     localStorage.setItem("exam_subject", sub);
     localStorage.setItem("exam_student_class", studentClass || "");
+    localStorage.setItem("device_id", deviceId || "");
     setState("viewing");
   }, [sessionId]);
 
@@ -172,7 +175,7 @@ const Index = () => {
 
     await supabase
       .from("exam_sessions")
-      .update({ violation_count: newCount, blocked: isBlocked })
+      .update({ violation_count: newCount, blocked: isBlocked, is_active: false })
       .eq("id", sessionId);
 
     await notifyTelegram("violation", studentName, subject, examUrlRef.current, newCount, isBlocked, studentClass);
@@ -191,11 +194,20 @@ const Index = () => {
   }, [sessionId, violationCount, studentName, subject, studentClass]);
 
   const handleLogout = useCallback(() => {
+    // Mark session as inactive if it exists
+    if (sessionId) {
+      await supabase
+        .from("exam_sessions")
+        .update({ is_active: false })
+        .eq("id", sessionId);
+    }
+
     localStorage.removeItem("exam_viewing_url");
     localStorage.removeItem("exam_session_id");
     localStorage.removeItem("exam_student_name");
     localStorage.removeItem("exam_subject");
     localStorage.removeItem("exam_student_class");
+    localStorage.removeItem("device_id");
     setStudentName("");
     setSubject("");
     setStudentClass("");
@@ -203,7 +215,7 @@ const Index = () => {
     setSessionId(null);
     setViolationCount(0);
     setState("login");
-  }, []);
+  }, [sessionId]);
 
   if (loading) {
     return (
