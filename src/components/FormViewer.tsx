@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Shield, AlertTriangle, RotateCcw, ExternalLink } from "lucide-react";
+import { Shield, AlertTriangle, RotateCcw, ExternalLink, Loader2 } from "lucide-react";
 
 interface FormViewerProps {
   url: string;
@@ -11,7 +11,9 @@ interface FormViewerProps {
 const FormViewer = ({ url, onVisibilityViolation, violationCount, maxViolations }: FormViewerProps) => {
   const [showWarning, setShowWarning] = useState(false);
   const [iframeError, setIframeError] = useState(false);
+  const [iframeLoading, setIframeLoading] = useState(true);
   const wasHiddenRef = useRef(false);
+  const iframeTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   const handleVisibilityChange = useCallback(() => {
     if (document.hidden) {
@@ -66,14 +68,27 @@ const FormViewer = ({ url, onVisibilityViolation, violationCount, maxViolations 
     };
   }, [handleVisibilityChange, handleBlur, handleResize, handlePiP]);
 
+  // Auto-fallback: if iframe doesn't load in 6 seconds, show error state
+  useEffect(() => {
+    if (iframeLoading) {
+      iframeTimeoutRef.current = setTimeout(() => {
+        setIframeLoading(false);
+        setIframeError(true);
+      }, 6000);
+    }
+    return () => {
+      if (iframeTimeoutRef.current) clearTimeout(iframeTimeoutRef.current);
+    };
+  }, [iframeLoading]);
+
+  const handleIframeLoad = () => {
+    setIframeLoading(false);
+    if (iframeTimeoutRef.current) clearTimeout(iframeTimeoutRef.current);
+  };
+
   const handleRescan = () => {
     setShowWarning(false);
     onVisibilityViolation();
-  };
-
-  const getDriveFileId = (rawUrl: string) => {
-    const match = rawUrl.match(/\/file\/d\/([^/]+)/);
-    return match?.[1] ?? null;
   };
 
   const getEmbedUrl = (rawUrl: string) => {
@@ -89,12 +104,8 @@ const FormViewer = ({ url, onVisibilityViolation, violationCount, maxViolations 
     if (rawUrl.includes("docs.google.com/presentation")) {
       return rawUrl.replace(/\/edit.*$/, "/embed?start=false&loop=false&delayms=3000");
     }
+    // Google Drive file — use /preview directly (more reliable on mobile)
     if (rawUrl.includes("drive.google.com/file")) {
-      const fileId = getDriveFileId(rawUrl);
-      if (fileId) {
-        // Use Google Docs viewer for better mobile PDF support
-        return `https://docs.google.com/viewer?embedded=true&url=https://drive.google.com/uc?id=${fileId}`;
-      }
       return rawUrl.replace(/\/view.*$/, "/preview");
     }
     if (rawUrl.toLowerCase().endsWith(".pdf") || rawUrl.includes("/pdf")) {
@@ -178,14 +189,26 @@ const FormViewer = ({ url, onVisibilityViolation, violationCount, maxViolations 
         </div>
       )}
 
+      {/* Loading spinner */}
+      {iframeLoading && (
+        <div className="flex items-center justify-center py-8 shrink-0">
+          <Loader2 className="w-6 h-6 text-primary animate-spin" />
+          <span className="ml-2 text-sm text-muted-foreground">Memuat dokumen...</span>
+        </div>
+      )}
+
       {/* Form iframe */}
       <iframe
         src={getEmbedUrl(url)}
-        className="flex-1 w-full border-none bg-background"
+        className={`flex-1 w-full border-none bg-background ${iframeLoading ? "hidden" : ""}`}
         title={getLinkType(url)}
         allow="camera; microphone"
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads"
-        onError={() => setIframeError(true)}
+        onLoad={handleIframeLoad}
+        onError={() => {
+          setIframeError(true);
+          setIframeLoading(false);
+        }}
       />
 
       {iframeError && (

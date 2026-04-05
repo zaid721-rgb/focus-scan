@@ -63,7 +63,10 @@ export const db = {
   },
 
   deleteAllExams: async (): Promise<void> => {
-    const { error } = await supabase.from("exams").delete();
+    const { error } = await supabase
+      .from("exams")
+      .delete()
+      .neq("id", "00000000-0000-0000-0000-000000000000");
     if (error) {
       console.error("deleteAllExams error:", error);
     }
