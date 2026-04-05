@@ -17,74 +17,74 @@ export type Database = {
       exam_sessions: {
         Row: {
           blocked: boolean
+          class: string
+          device_id: string | null
           exam_url: string
           id: string
+          is_active: boolean
+          is_locked_at_start: boolean
           started_at: string
           student_name: string
           subject: string
           violation_count: number
-          class: string | null
-          is_locked_at_start: boolean
-          device_id: string | null
-          is_active: boolean
         }
         Insert: {
           blocked?: boolean
+          class?: string
+          device_id?: string | null
           exam_url: string
           id?: string
+          is_active?: boolean
+          is_locked_at_start?: boolean
           started_at?: string
           student_name: string
           subject: string
           violation_count?: number
-          class?: string | null
-          is_locked_at_start?: boolean
-          device_id?: string | null
-          is_active?: boolean
         }
         Update: {
           blocked?: boolean
+          class?: string
+          device_id?: string | null
           exam_url?: string
           id?: string
+          is_active?: boolean
+          is_locked_at_start?: boolean
           started_at?: string
           student_name?: string
           subject?: string
           violation_count?: number
-          class?: string | null
-          is_locked_at_start?: boolean
-          device_id?: string | null
-          is_active?: boolean
         }
         Relationships: []
       }
       exams: {
         Row: {
+          class: string
           created_at: string
           exam_url: string
           id: string
+          locked: boolean
           student_name: string
           subject: string
-          class: string
-          locked: boolean
           unlocks_at: string | null
         }
         Insert: {
+          class?: string
           created_at?: string
           exam_url: string
           id?: string
+          locked?: boolean
           student_name: string
           subject: string
-          class?: string
-          locked?: boolean
           unlocks_at?: string | null
         }
         Update: {
+          class?: string
           created_at?: string
           exam_url?: string
           id?: string
+          locked?: boolean
           student_name?: string
           subject?: string
-          class?: string
-          locked?: boolean
           unlocks_at?: string | null
         }
         Relationships: []
