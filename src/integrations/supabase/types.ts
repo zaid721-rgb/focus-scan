@@ -23,10 +23,6 @@ export type Database = {
           student_name: string
           subject: string
           violation_count: number
-          class: string | null
-          is_locked_at_start: boolean
-          device_id: string | null
-          is_active: boolean
         }
         Insert: {
           blocked?: boolean
@@ -36,10 +32,6 @@ export type Database = {
           student_name: string
           subject: string
           violation_count?: number
-          class?: string | null
-          is_locked_at_start?: boolean
-          device_id?: string | null
-          is_active?: boolean
         }
         Update: {
           blocked?: boolean
@@ -49,10 +41,6 @@ export type Database = {
           student_name?: string
           subject?: string
           violation_count?: number
-          class?: string | null
-          is_locked_at_start?: boolean
-          device_id?: string | null
-          is_active?: boolean
         }
         Relationships: []
       }
@@ -63,9 +51,6 @@ export type Database = {
           id: string
           student_name: string
           subject: string
-          class: string
-          locked: boolean
-          unlocks_at: string | null
         }
         Insert: {
           created_at?: string
@@ -73,9 +58,6 @@ export type Database = {
           id?: string
           student_name: string
           subject: string
-          class?: string
-          locked?: boolean
-          unlocks_at?: string | null
         }
         Update: {
           created_at?: string
@@ -83,9 +65,6 @@ export type Database = {
           id?: string
           student_name?: string
           subject?: string
-          class?: string
-          locked?: boolean
-          unlocks_at?: string | null
         }
         Relationships: []
       }
