@@ -167,6 +167,32 @@ const FormViewer = ({ url, onVisibilityViolation, violationCount, maxViolations 
 
   return (
     <div className="flex flex-col h-screen">
+      {/* DND Reminder overlay */}
+      {showDndReminder && (
+        <div className="fixed inset-0 z-50 bg-background/95 flex items-center justify-center px-4">
+          <div className="w-full max-w-sm text-center">
+            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+              <BellOff className="w-8 h-8 text-primary" />
+            </div>
+            <h2 className="text-xl font-bold text-foreground mb-2">Aktifkan Mode Senyap</h2>
+            <p className="text-muted-foreground text-sm mb-4">
+              Sebelum memulai ujian, aktifkan mode <strong>Jangan Ganggu (DND)</strong> atau <strong>Mode Pesawat</strong> di HP Anda agar notifikasi tidak mengganggu dan terdeteksi sebagai pelanggaran.
+            </p>
+            <div className="rounded-lg bg-warning/10 border border-warning/30 px-4 py-3 mb-6">
+              <p className="text-warning text-xs font-medium">
+                ⚠️ Membuka notifikasi, membalas chat, atau keluar dari halaman ini akan dihitung sebagai pelanggaran!
+              </p>
+            </div>
+            <button
+              onClick={() => setShowDndReminder(false)}
+              className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-semibold text-sm"
+            >
+              Saya Sudah Aktifkan, Mulai Ujian
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Security bar */}
       <div className="flex items-center gap-2 px-4 py-2 bg-secondary border-b border-border shrink-0">
         <Shield className="w-4 h-4 text-primary" />
