@@ -151,8 +151,28 @@ const StudentLogin = ({ onStart }: StudentLoginProps) => {
 
     setSubmitting(true);
 
-    // Check if student already active on another device
-    const activeSession = await db.getActiveSessionByStudentName(matchedOption.student_name);
+    const data = await db.getExamByStudentSubjectClass(matchedOption.student_name, matchedOption.subject, typedClass);
+
+    if (!data?.exam_url) {
+      setSubmitting(false);
+      const message = "Kombinasi nama, mata pelajaran, dan kelas tidak valid. Silakan cek lagi.";
+      setError(message);
+      toast.error(message);
+      return;
+    }
+
+    // Check if locked FIRST before device check
+    if (data.locked) {
+      setSubmitting(false);
+      const unlockTime = data.unlocks_at ? new Date(data.unlocks_at).toLocaleString("id-ID") : "belum ditentukan";
+      const message = `Ujian ini masih dikunci. Akan dibuka pada: ${unlockTime}`;
+      setError(message);
+      toast.error(message);
+      return;
+    }
+
+    // Check if student already active on another device (by name+subject+class)
+    const activeSession = await db.getActiveSessionByStudent(matchedOption.student_name, matchedOption.subject, typedClass);
 
     if (activeSession && activeSession.device_id !== deviceId) {
       setSubmitting(false);
@@ -162,26 +182,7 @@ const StudentLogin = ({ onStart }: StudentLoginProps) => {
       return;
     }
 
-    const data = await db.getExamByStudentSubjectClass(matchedOption.student_name, matchedOption.subject, typedClass);
-
     setSubmitting(false);
-
-    if (!data?.exam_url) {
-      const message = "Kombinasi nama, mata pelajaran, dan kelas tidak valid. Silakan cek lagi.";
-      setError(message);
-      toast.error(message);
-      return;
-    }
-
-    // Check if locked
-    if (data.locked) {
-      const unlockTime = data.unlocks_at ? new Date(data.unlocks_at).toLocaleString("id-ID") : "belum ditentukan";
-      const message = `Ujian ini masih dikunci. Akan dibuka pada: ${unlockTime}`;
-      setError(message);
-      toast.error(message);
-      return;
-    }
-
     setError(null);
     onStart(matchedOption.student_name, matchedOption.subject, data.exam_url, typedClass, deviceId);
   };

@@ -195,4 +195,26 @@ export const db = {
 
     return data;
   },
+
+  getActiveSessionByStudent: async (
+    student_name: string,
+    subject: string,
+    studentClass: string,
+  ): Promise<SessionRow | null> => {
+    const { data, error } = await supabase
+      .from("exam_sessions")
+      .select("*")
+      .eq("student_name", student_name)
+      .eq("subject", subject)
+      .eq("class", studentClass)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (error) {
+      console.error("getActiveSessionByStudent error:", error);
+      return null;
+    }
+
+    return data;
+  },
 };
