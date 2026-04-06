@@ -161,14 +161,22 @@ const StudentLogin = ({ onStart }: StudentLoginProps) => {
       return;
     }
 
-    // Check if locked FIRST before device check
+    // Check if locked — auto-unlock if unlocks_at has passed
     if (data.locked) {
-      setSubmitting(false);
-      const unlockTime = data.unlocks_at ? new Date(data.unlocks_at).toLocaleString("id-ID") : "belum ditentukan";
-      const message = `Ujian ini masih dikunci. Akan dibuka pada: ${unlockTime}`;
-      setError(message);
-      toast.error(message);
-      return;
+      const now = new Date();
+      const unlocksAt = data.unlocks_at ? new Date(data.unlocks_at) : null;
+
+      if (unlocksAt && now >= unlocksAt) {
+        // Auto-unlock: update database
+        await db.updateExam(data.id, { locked: false });
+      } else {
+        setSubmitting(false);
+        const unlockTime = unlocksAt ? unlocksAt.toLocaleString("id-ID") : "belum ditentukan";
+        const message = `Ujian ini masih dikunci. Akan dibuka pada: ${unlockTime}`;
+        setError(message);
+        toast.error(message);
+        return;
+      }
     }
 
     // Check if student already active on another device (by name+subject+class)
