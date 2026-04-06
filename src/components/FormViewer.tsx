@@ -10,7 +10,7 @@ interface FormViewerProps {
 
 const FormViewer = ({ url, onVisibilityViolation, violationCount, maxViolations }: FormViewerProps) => {
   const [showWarning, setShowWarning] = useState(false);
-  const [showDndReminder, setShowDndReminder] = useState(true);
+  const [showDndReminder, setShowDndReminder] = useState(false);
   const [iframeError, setIframeError] = useState(false);
   const [iframeLoading, setIframeLoading] = useState(true);
   const wasHiddenRef = useRef(false);
