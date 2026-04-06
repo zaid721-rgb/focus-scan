@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Shield, AlertTriangle, RotateCcw, ExternalLink, Loader2 } from "lucide-react";
+import { Shield, AlertTriangle, RotateCcw, ExternalLink, Loader2, BellOff } from "lucide-react";
 
 interface FormViewerProps {
   url: string;
@@ -10,6 +10,7 @@ interface FormViewerProps {
 
 const FormViewer = ({ url, onVisibilityViolation, violationCount, maxViolations }: FormViewerProps) => {
   const [showWarning, setShowWarning] = useState(false);
+  const [showDndReminder, setShowDndReminder] = useState(true);
   const [iframeError, setIframeError] = useState(false);
   const [iframeLoading, setIframeLoading] = useState(true);
   const wasHiddenRef = useRef(false);
@@ -29,7 +30,7 @@ const FormViewer = ({ url, onVisibilityViolation, violationCount, maxViolations 
       if (!document.hasFocus()) {
         setShowWarning(true);
       }
-    }, 300);
+    }, 200);
   }, []);
 
   const windowSizeRef = useRef({ w: window.innerWidth, h: window.innerHeight });
@@ -52,12 +53,14 @@ const FormViewer = ({ url, onVisibilityViolation, violationCount, maxViolations 
     window.addEventListener("blur", handleBlur);
     window.addEventListener("resize", handleResize);
     document.addEventListener("enterpictureinpicture", handlePiP);
+    window.addEventListener("touchstart", () => {}, { passive: true });
 
+    // Aggressive focus check every 800ms
     const focusInterval = setInterval(() => {
       if (!document.hasFocus() && !document.hidden) {
         setShowWarning(true);
       }
-    }, 2000);
+    }, 800);
 
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
